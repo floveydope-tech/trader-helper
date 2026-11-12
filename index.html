@@ -616,9 +616,9 @@ async function trNew(tries=0){
   let a;
   for(let k=0;k<50;k++){ a=Math.floor((from+Math.random()*(to-from))/HOUR)*HOUR; const d=new Date(a); if(d.getUTCDay()>=1&&d.getUTCDay()<=5&&d.getUTCHours()>=1&&d.getUTCHours()<=21) break; }
   TR.anchor=a; TR.tcut=a;
-  await trLoad(tries);
+  await trLoad(tries,true);
 }
-async function trLoad(tries=0){
+async function trLoad(tries=0,fresh=false){
   if(TR.anim||TR.busy) return;
   const sym=segVal('tr-sym'), tf=segVal('tr-tf'), ms=TFMS[tf];
   if(!TR.cache[tf]){
@@ -633,7 +633,7 @@ async function trLoad(tries=0){
     const bars=TR.cache[tf], pre=bars.filter(x=>x.t<TR.anchor);
     const rng=pre.reduce((s,x)=>s+x.h-x.l,0)/Math.max(1,pre.length);
     const flat=pre.filter(x=>x.h-x.l<rng*0.2).length;
-    if((pre.length<SHOW*0.8 || bars.length-pre.length<20 || flat>pre.length*0.15) && tries<6 && !TR.place && !TR.trade){ return trNew(tries+1); }
+    if((pre.length<SHOW*0.8 || bars.length-pre.length<20 || flat>pre.length*0.15) && fresh && tries<6){ return trNew(tries+1); }
   }
   TR.bars=TR.cache[tf]; $('tr-msg').style.display='none';
   if(TR.trade && !TR.anim){ /* после сделки на другом ТФ показываем то же время */ }
