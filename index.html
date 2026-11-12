@@ -83,6 +83,14 @@ canvas{width:100%;height:150px;display:block}
 .pill{display:inline-block;padding:5px 10px;border-radius:20px;font-size:12px;background:rgba(255,255,255,.05);border:1px solid var(--line);margin:4px 4px 0 0}
 .del{background:none;color:var(--hint);padding:4px 8px;font-size:15px;box-shadow:none}
 .hide{display:none}
+.nday{font-size:12px;font-weight:700;color:var(--acc2);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 4px}
+.nrow{display:flex;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
+.nrow.past{opacity:.4}
+.ntime{font-weight:700;font-variant-numeric:tabular-nums;min-width:44px}
+.ntitle{font-weight:600}
+.nimp{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:7px;margin-top:4px}
+.nimp.h{background:rgba(255,93,108,.15);color:#ff8b95}.nimp.m{background:rgba(247,194,92,.14);color:var(--acc2)}.nimp.l{background:rgba(255,255,255,.06);color:var(--hint)}
+.nsoon{color:var(--dn);font-size:11px;font-weight:700;margin-left:6px}
 </style>
 </head>
 <body>
@@ -168,7 +176,10 @@ canvas{width:100%;height:150px;display:block}
       <button class="btn2" onclick="sendBot({t:'news',on:false},'Напоминания выключены')">🔕 Не надо</button>
     </div>
   </div>
-  <div class="card" style="padding:6px"><div class="tv" id="tvCal" style="height:560px"></div></div>
+  <div class="card">
+    <div class="seg" id="nFilter" style="margin-bottom:6px"><button class="on" data-v="usd">🇺🇸 США</button><button data-v="high">🔴 Сильные</button><button data-v="all">Все</button></div>
+    <div id="newsList"><p class="muted">Загружаю новости…</p></div>
+  </div>
 </section>
 
 <!-- ===== АЛЕРТЫ ===== -->
@@ -375,11 +386,72 @@ function loadChart(){
      hide_side_toolbar:true,allow_symbol_change:true,calendar:false,support_host:'https://www.tradingview.com'});
 }
 seg('chartSym',b=>{chartSym=b.dataset.s;loadChart()});
-let calLoaded=false;
-function loadCal(){
-  if(calLoaded) return; calLoaded=true;
-  tvEmbed($('tvCal'),'https://s3.tradingview.com/external-embedding/embed-widget-events.js',
-    {colorTheme:dark?'dark':'light',isTransparent:true,width:'100%',height:'100%',locale:'ru',importanceFilter:'0,1',countryFilter:'us,eu,gb,cn'});
+let calLoaded=false, NEWS=[];
+// Коротко по-русски: название и как обычно реагирует золото
+const NEWS_RU=[
+ ['ADP Non-Farm','Занятость ADP','больше прогноза → золото ↓'],
+ ['Non-Farm Employment','Занятость NFP','больше прогноза → золото ↓'],
+ ['Unemployment Claims','Заявки на пособие','больше прогноза → золото ↑'],
+ ['Unemployment Rate','Безработица','выше прогноза → золото ↑'],
+ ['Average Hourly Earnings','Рост зарплат','выше прогноза → золото ↓'],
+ ['Core PCE','Инфляция PCE','выше прогноза → золото ↓'],
+ ['Core CPI','Базовая инфляция CPI','выше прогноза → золото ↓'],
+ ['CPI','Инфляция CPI','выше прогноза → золото ↓'],
+ ['PPI','Цены производителей','выше прогноза → золото ↓'],
+ ['Federal Funds Rate','Ставка ФРС','ставка выше / жёсткий тон → золото ↓'],
+ ['FOMC Statement','Заявление ФРС','жёсткий тон → золото ↓'],
+ ['FOMC Press Conference','Пресс-конференция ФРС','резкие движения в обе стороны'],
+ ['FOMC Meeting Minutes','Протокол ФРС','жёсткий тон → золото ↓'],
+ ['Powell','Речь Пауэлла (ФРС)','резкие движения в обе стороны'],
+ ['Fed Chair','Речь главы ФРС','резкие движения в обе стороны'],
+ ['Retail Sales','Розничные продажи','выше прогноза → золото ↓'],
+ ['GDP','ВВП','выше прогноза → золото ↓'],
+ ['ISM Manufacturing','Деловая активность (промышл.)','выше прогноза → золото ↓'],
+ ['ISM Services','Деловая активность (услуги)','выше прогноза → золото ↓'],
+ ['PMI','Индекс деловой активности','выше прогноза → золото ↓'],
+ ['JOLTS','Вакансии JOLTS','больше прогноза → золото ↓'],
+ ['Durable Goods','Заказы товаров длит. пользования','выше прогноза → золото ↓'],
+ ['Consumer Sentiment','Настроения потребителей','выше прогноза → золото ↓'],
+ ['Consumer Confidence','Доверие потребителей','выше прогноза → золото ↓'],
+ ['Existing Home Sales','Продажи жилья','на золото влияет слабо'],
+ ['New Home Sales','Новые дома','на золото влияет слабо'],
+ ['Housing Starts','Строительство жилья','на золото влияет слабо'],
+ ['Building Permits','Разрешения на стройку','на золото влияет слабо'],
+ ['Crude Oil Inventories','Запасы нефти','на золото почти не влияет'],
+ ['Bank Holiday','Выходной в США','рынок тонкий, возможны рывки'],
+ ['Treasury Currency Report','Отчёт Минфина по валютам','обычно без реакции'],
+];
+const FLAGS={USD:'🇺🇸',EUR:'🇪🇺',GBP:'🇬🇧',JPY:'🇯🇵',CNY:'🇨🇳',CHF:'🇨🇭',CAD:'🇨🇦',AUD:'🇦🇺',NZD:'🇳🇿'};
+const IMP={High:['h','🔴 Сильно влияет'],Medium:['m','🟠 Средне'],Low:['l','🟡 Слабо'],Holiday:['l','⚪ Выходной']};
+function ru(title){ for(const [k,n,e] of NEWS_RU) if(title.includes(k)) return {n,e}; return {n:title,e:''}; }
+async function loadCal(){
+  if(!calLoaded){ calLoaded=true;
+    try{ NEWS=await fetch('news.json?'+Math.floor(Date.now()/6e5)).then(r=>r.json()); }
+    catch(e){ $('newsList').innerHTML='<p class="muted">Не удалось загрузить новости. Попробуй позже.</p>'; return; } }
+  drawNews();
+}
+seg('nFilter',()=>drawNews());
+function drawNews(){
+  const f=segVal('nFilter'), now=Date.now();
+  const ev=NEWS.filter(e=> f==='all' ? true : f==='high' ? e.impact==='High' : e.country==='USD')
+               .filter(e=> e.impact!=='Low' || f==='all')
+               .map(e=>({...e,t:new Date(e.date)})).sort((a,b)=>a.t-b.t);
+  if(!ev.length){ $('newsList').innerHTML='<p class="muted">На этой неделе таких новостей нет.</p>'; return; }
+  let html='', day='';
+  for(const e of ev){
+    const d=e.t.toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'});
+    if(d!==day){ day=d; html+=`<div class="nday">${d}</div>`; }
+    const r=ru(e.title), im=IMP[e.impact]||IMP.Low, past=e.t.getTime()<now-15*60e3;
+    const mins=(e.t.getTime()-now)/60e3;
+    const soon = mins>0 && mins<=120 ? `<span class="nsoon">через ${mins<60?Math.round(mins)+' мин':Math.floor(mins/60)+' ч '+Math.round(mins%60)+' мин'}</span>` : '';
+    const fc=[e.forecast?`прогноз ${e.forecast}`:'', e.previous?`было ${e.previous}`:''].filter(Boolean).join(' · ');
+    html+=`<div class="nrow ${past?'past':''}"><div class="ntime">${e.t.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}</div><div style="flex:1">
+      <div class="ntitle">${FLAGS[e.country]||e.country} ${r.n}${soon}</div>
+      <span class="nimp ${im[0]}">${im[1]}</span>
+      ${r.e?`<div class="muted" style="margin-top:4px">${r.e}</div>`:''}
+      ${fc?`<div class="muted">${fc}</div>`:''}</div></div>`;
+  }
+  $('newsList').innerHTML=html+'<p class="muted">Время — твоё местное. Обновляется каждые 3 часа.</p>';
 }
 
 /* ---------- отправка данных боту ---------- */
