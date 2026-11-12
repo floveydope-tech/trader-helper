@@ -61,7 +61,7 @@ button:active{transform:scale(.97)}
 .up{color:var(--up)}.dn{color:var(--dn)}.muted{color:var(--hint);font-size:12px}
 nav{position:fixed;bottom:calc(10px + env(safe-area-inset-bottom));left:10px;right:10px;background:rgba(18,22,34,.82);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
   border:1px solid var(--line);border-radius:22px;display:flex;padding:6px;box-shadow:0 12px 34px rgba(0,0,0,.5);z-index:9}
-nav button{flex:1;background:none;color:var(--hint);font-size:10px;font-weight:600;padding:7px 0 6px;display:flex;flex-direction:column;align-items:center;gap:3px;border-radius:16px}
+nav button{flex:1;min-width:0;background:none;color:var(--hint);font-size:9.5px;font-weight:600;padding:7px 0 6px;display:flex;flex-direction:column;align-items:center;gap:3px;border-radius:16px}
 nav button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 nav button.on{color:var(--acc2);background:rgba(247,194,92,.12)}
 .sess{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--line)}
@@ -250,6 +250,45 @@ canvas{width:100%;height:150px;display:block}
     <div id="jList"><p class="muted">Пока пусто</p></div>
   </div>
 </section>
+
+<!-- ===== ТРЕНАЖЁР ===== -->
+<section class="page" id="p-train">
+  <div class="card">
+    <h2><span class="ic">🎯</span>Тренажёр: куда пойдёт цена?</h2>
+    <div class="row">
+      <div class="seg" id="tr-sym"><button class="on" data-v="PAXGUSDT">Золото</button><button data-v="BTCUSDT">BTC</button></div>
+      <div class="seg" id="tr-tf"><button data-v="5m">M5</button><button class="on" data-v="15m">M15</button><button data-v="1h">H1</button></div>
+    </div>
+    <div style="position:relative;margin-top:10px">
+      <canvas id="tr-cv" style="height:300px;border-radius:14px;background:rgba(0,0,0,.25)"></canvas>
+      <div id="tr-msg" class="muted" style="position:absolute;inset:0;display:grid;place-items:center">Загружаю график…</div>
+    </div>
+    <div class="row" style="margin-top:4px">
+      <div><label>Стоп, пункты</label><input id="tr-sl" type="number" inputmode="decimal"></div>
+      <div><label>Тейк, пункты</label><input id="tr-tp" type="number" inputmode="decimal"></div>
+    </div>
+    <p class="muted" id="tr-hint" style="margin:6px 0 0"></p>
+    <div class="row" id="tr-act" style="margin-top:12px">
+      <button class="btn" style="margin:0;background:var(--up);color:#00261a;box-shadow:none" onclick="trOpen(1)">BUY</button>
+      <button class="btn" style="margin:0;background:var(--dn);color:#2b0006;box-shadow:none" onclick="trOpen(-1)">SELL</button>
+      <button class="btn btn2" style="margin:0;flex:.7" onclick="trNew()">Пропуск</button>
+    </div>
+    <div id="tr-res" class="hide" style="margin-top:12px">
+      <div class="kv" style="margin-top:0"><div><small>Результат</small><b id="tr-r">—</b></div><div><small>Пунктов</small><b id="tr-pts">—</b></div></div>
+      <p class="muted" id="tr-when"></p>
+      <button class="btn" onclick="trNew()">Следующий график →</button>
+    </div>
+  </div>
+  <div class="card">
+    <h2><span class="ic">🏆</span>Твоя статистика</h2>
+    <div class="kv" style="margin-top:0">
+      <div><small>Сделок</small><b id="ts-n">0</b></div><div><small>Винрейт</small><b id="ts-wr">—</b></div>
+      <div><small>Итог, R</small><b id="ts-r">0</b></div><div><small>Серия побед</small><b id="ts-st">0</b></div>
+    </div>
+    <p class="muted">R — сколько стопов заработал: тейк 1:2 = +2R, стоп = −1R. Цена золота — по токену PAXG, он повторяет золото.</p>
+    <button class="btn btn2" onclick="trReset()">Сбросить статистику</button>
+  </div>
+</section>
 </main>
 
 <nav>
@@ -257,6 +296,7 @@ canvas{width:100%;height:150px;display:block}
   <button data-p="mkt"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>Рынок</button>
   <button data-p="news"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>Новости</button>
   <button data-p="alert"><svg viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 1112 0v5l2 2H4z"/><path d="M10 20a2 2 0 004 0"/></svg>Алерты</button>
+  <button data-p="train"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>Тренажёр</button>
   <button data-p="jrnl"><svg viewBox="0 0 24 24"><path d="M5 4h11a3 3 0 013 3v13H8a3 3 0 01-3-3z"/><path d="M5 17a3 3 0 013-3h11"/></svg>Дневник</button>
 </nav>
 
@@ -300,7 +340,7 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   haptic();
   document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));
   document.querySelectorAll('.page').forEach(p=>p.classList.toggle('on',p.id==='p-'+b.dataset.p));
-  if (b.dataset.p==='mkt') loadChart(); if (b.dataset.p==='news') loadCal(); if (b.dataset.p==='jrnl') drawStats();
+  if (b.dataset.p==='mkt') loadChart(); if (b.dataset.p==='news') loadCal(); if (b.dataset.p==='jrnl') drawStats(); if (b.dataset.p==='train' && !TR.bars.length) trNew();
   window.scrollTo(0,0);
 });
 function seg(id, cb){ const el=$(id); el.querySelectorAll('button').forEach(b=>b.onclick=()=>{
@@ -545,6 +585,99 @@ function drawEq(T){
   x.beginPath(); pts.forEach((v,i)=>i?x.lineTo(X(i),Y(v)):x.moveTo(X(i),Y(v))); x.strokeStyle=col; x.lineWidth=2; x.stroke();
 }
 (async()=>{ J=await loadJournal(); drawList(); drawStats(); })();
+
+/* ---------- тренажёр ---------- */
+const TR={bars:[],shown:0,fut:0,trade:null,anim:null,st:{n:0,w:0,r:0,streak:0}};
+const TFMS={'5m':3e5,'15m':9e5,'1h':36e5};
+const SHOW=140, FUT=90;
+seg('tr-sym',()=>trNew()); seg('tr-tf',()=>trNew());
+async function trFetch(url){
+  for(const host of ['https://data-api.binance.vision','https://api.binance.com']){
+    try{ const r=await fetch(host+url); if(r.ok) return await r.json(); }catch(e){}
+  }
+  throw new Error('нет связи');
+}
+async function trNew(){
+  if(TR.anim){clearInterval(TR.anim);TR.anim=null}
+  TR.trade=null; $('tr-res').classList.add('hide'); $('tr-act').classList.remove('hide');
+  $('tr-msg').textContent='Загружаю график…'; $('tr-msg').style.display='grid';
+  const sym=segVal('tr-sym'), tf=segVal('tr-tf'), ms=TFMS[tf];
+  const from=new Date('2021-01-01').getTime(), to=Date.now()-(SHOW+FUT+20)*ms;
+  const start=Math.floor(from+Math.random()*(to-from));
+  try{
+    const k=await trFetch(`/api/v3/klines?symbol=${sym}&interval=${tf}&startTime=${start}&limit=${SHOW+FUT}`);
+    TR.bars=k.map(x=>({t:x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4]}));
+    if(TR.bars.length<SHOW+20) return trNew();
+    // отсекаем «мёртвые» куски без движения (выходные у PAXG торгуются вяло)
+    const rng=TR.bars.slice(0,SHOW).reduce((a,b)=>a+(b.h-b.l),0)/SHOW;
+    if(rng<=0) return trNew();
+  }catch(e){ $('tr-msg').textContent='Не удалось загрузить график. Проверь интернет.'; return; }
+  TR.shown=SHOW; TR.fut=0;
+  const atr=TR.bars.slice(SHOW-14,SHOW).reduce((a,b)=>a+b.h-b.l,0)/14;
+  const sl=trRound(atr*1.5); $('tr-sl').value=sl; $('tr-tp').value=trRound(sl*2);
+  $('tr-hint').textContent=`Средняя свеча сейчас ≈ ${trRound(atr)} п. Стоп по умолчанию — 1,5 свечи, тейк 1:2.`;
+  $('tr-msg').style.display='none'; trDraw();
+}
+function trRound(v){ return v>=100?Math.round(v/10)*10:v>=10?Math.round(v):Math.round(v*10)/10 }
+function trDraw(){
+  const c=$('tr-cv'), dpr=window.devicePixelRatio||1, W=c.clientWidth, H=300;
+  c.width=W*dpr; c.height=H*dpr; const x=c.getContext('2d'); x.scale(dpr,dpr); x.clearRect(0,0,W,H);
+  const n=TR.shown+TR.fut, view=TR.bars.slice(Math.max(0,n-110),n);
+  if(!view.length) return;
+  const T=TR.trade; let lo=Math.min(...view.map(b=>b.l)), hi=Math.max(...view.map(b=>b.h));
+  if(T){ lo=Math.min(lo,T.sl,T.tp); hi=Math.max(hi,T.sl,T.tp); }
+  const pad=(hi-lo)*.06; lo-=pad; hi+=pad;
+  const axis=52, cw=(W-axis-6)/110, Y=v=>8+(hi-v)/(hi-lo)*(H-16);
+  x.font='10px Inter,sans-serif'; x.fillStyle='#7d8597'; x.strokeStyle='rgba(255,255,255,.05)';
+  for(let i=0;i<5;i++){ const v=lo+(hi-lo)*i/4, y=Y(v); x.beginPath(); x.moveTo(0,y); x.lineTo(W-axis,y); x.stroke(); x.fillText(v.toFixed(v>1000?1:2),W-axis+4,y+3); }
+  const off=Math.max(0,n-110);
+  view.forEach((b,i)=>{
+    const gi=off+i, cx=4+i*cw+cw/2, up=b.c>=b.o, fut=gi>=TR.shown;
+    x.strokeStyle=x.fillStyle= up?(fut?'#7ff0c8':'#22d39a'):(fut?'#ff9aa4':'#ff5d6c');
+    x.beginPath(); x.moveTo(cx,Y(b.h)); x.lineTo(cx,Y(b.l)); x.stroke();
+    const y1=Y(Math.max(b.o,b.c)), y2=Y(Math.min(b.o,b.c)); x.fillRect(cx-cw*.35,y1,cw*.7,Math.max(1,y2-y1));
+  });
+  if(T){
+    const line=(v,col,txt)=>{ x.strokeStyle=col; x.setLineDash([5,4]); x.beginPath(); x.moveTo(0,Y(v)); x.lineTo(W-axis,Y(v)); x.stroke(); x.setLineDash([]); x.fillStyle=col; x.fillText(txt,6,Y(v)-4); };
+    line(T.tp,'#22d39a','TP'); line(T.sl,'#ff5d6c','SL'); line(T.e,'#f7c25c','Вход');
+    const ex=4+(TR.shown-1-off)*cw+cw/2; x.strokeStyle='rgba(247,194,92,.4)'; x.beginPath(); x.moveTo(ex,0); x.lineTo(ex,H); x.stroke();
+  } else {
+    const last=view[view.length-1]; x.fillStyle='#f7c25c'; x.fillRect(W-axis,Y(last.c)-7,axis,14); x.fillStyle='#2a1a00'; x.fillText(last.c.toFixed(last.c>1000?1:2),W-axis+4,Y(last.c)+3);
+  }
+}
+function trOpen(dir){
+  if(TR.trade||!TR.bars.length) return; haptic('medium');
+  const sl=+$('tr-sl').value, tp=+$('tr-tp').value; if(!(sl>0&&tp>0)) return toast('Укажи стоп и тейк');
+  const e=TR.bars[TR.shown-1].c;
+  TR.trade={dir,e,sl:e-dir*sl,tp:e+dir*tp,sld:sl,tpd:tp};
+  $('tr-act').classList.add('hide'); trDraw();
+  TR.anim=setInterval(()=>{
+    const T=TR.trade, b=TR.bars[TR.shown+TR.fut]; let res=null;
+    if(!b){ res={r:(TR.bars[TR.shown+TR.fut-1].c-T.e)*T.dir/T.sld, why:'время вышло'}; }
+    else{
+      TR.fut++;
+      const hitSL = T.dir>0 ? b.l<=T.sl : b.h>=T.sl, hitTP = T.dir>0 ? b.h>=T.tp : b.l<=T.tp;
+      if(hitSL) res={r:-1,why:'стоп'}; else if(hitTP) res={r:T.tpd/T.sld,why:'тейк'};
+    }
+    trDraw(); if(res) trFinish(res);
+  },90);
+}
+function trFinish(res){
+  clearInterval(TR.anim); TR.anim=null;
+  const r=Math.round(res.r*100)/100, pts=Math.round(res.r*TR.trade.sld*100)/100, s=TR.st;
+  s.n++; s.r=Math.round((s.r+r)*100)/100; if(r>0){s.w++;s.streak++} else s.streak=0;
+  store.set('trainer',JSON.stringify(s)); trStats();
+  $('tr-r').textContent=(r>0?'+':'')+r+'R'; $('tr-r').className=r>0?'up':r<0?'dn':'';
+  $('tr-pts').textContent=(pts>0?'+':'')+pts; $('tr-pts').className=r>0?'up':r<0?'dn':'';
+  const d=new Date(TR.bars[TR.shown-1].t);
+  $('tr-when').textContent=`${res.why==='тейк'?'✅ Тейк!':res.why==='стоп'?'❌ Стоп':'⏱ Закрыто по времени'} · Это было ${d.toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}`;
+  $('tr-res').classList.remove('hide');
+  try{ tg.HapticFeedback.notificationOccurred(r>0?'success':'error') }catch(e){}
+}
+function trStats(){ const s=TR.st; $('ts-n').textContent=s.n; $('ts-wr').textContent=s.n?Math.round(s.w/s.n*100)+'%':'—';
+  $('ts-r').textContent=(s.r>0?'+':'')+s.r; $('ts-r').className=s.r>=0?'up':'dn'; $('ts-st').textContent=s.streak; }
+function trReset(){ TR.st={n:0,w:0,r:0,streak:0}; store.set('trainer',JSON.stringify(TR.st)); trStats(); }
+(async()=>{ const v=await store.get('trainer'); if(v) try{TR.st=JSON.parse(v)}catch(e){} trStats(); })();
 </script>
 </body>
 </html>
