@@ -83,6 +83,7 @@ canvas{width:100%;height:150px;display:block}
 .pill{display:inline-block;padding:5px 10px;border-radius:20px;font-size:12px;background:rgba(255,255,255,.05);border:1px solid var(--line);margin:4px 4px 0 0}
 .del{background:none;color:var(--hint);padding:4px 8px;font-size:15px;box-shadow:none}
 .hide{display:none}
+.zbtn{width:34px;height:34px;padding:0;border-radius:10px;font-size:20px;line-height:1;background:rgba(18,22,34,.85)}
 .nday{font-size:12px;font-weight:700;color:var(--acc2);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 4px}
 .nrow{display:flex;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
 .nrow.past{opacity:.4}
@@ -260,18 +261,21 @@ canvas{width:100%;height:150px;display:block}
       <div class="seg" id="tr-tf"><button data-v="5m">M5</button><button class="on" data-v="15m">M15</button><button data-v="1h">H1</button></div>
     </div>
     <div style="position:relative;margin-top:10px">
-      <canvas id="tr-cv" style="height:300px;border-radius:14px;background:rgba(0,0,0,.25)"></canvas>
+      <canvas id="tr-cv" style="height:320px;border-radius:14px;background:rgba(0,0,0,.25);touch-action:none"></canvas>
+      <div style="position:absolute;left:8px;top:8px;display:flex;gap:6px">
+        <button class="btn2 zbtn" onclick="trZoom(-1)">−</button><button class="btn2 zbtn" onclick="trZoom(1)">+</button>
+      </div>
       <div id="tr-msg" class="muted" style="position:absolute;inset:0;display:grid;place-items:center">Загружаю график…</div>
     </div>
-    <div class="row" style="margin-top:4px">
-      <div><label>Стоп, пункты</label><input id="tr-sl" type="number" inputmode="decimal"></div>
-      <div><label>Тейк, пункты</label><input id="tr-tp" type="number" inputmode="decimal"></div>
-    </div>
-    <p class="muted" id="tr-hint" style="margin:6px 0 0"></p>
-    <div class="row" id="tr-act" style="margin-top:12px">
-      <button class="btn" style="margin:0;background:var(--up);color:#00261a;box-shadow:none" onclick="trOpen(1)">BUY</button>
-      <button class="btn" style="margin:0;background:var(--dn);color:#2b0006;box-shadow:none" onclick="trOpen(-1)">SELL</button>
+    <p class="muted" id="tr-hint" style="margin:8px 0 0">Как думаешь, куда пойдёт цена? Нажми BUY или SELL.</p>
+    <div class="row" id="tr-act" style="margin-top:10px">
+      <button class="btn" style="margin:0;background:var(--up);color:#00261a;box-shadow:none" onclick="trPlace(1)">BUY</button>
+      <button class="btn" style="margin:0;background:var(--dn);color:#2b0006;box-shadow:none" onclick="trPlace(-1)">SELL</button>
       <button class="btn btn2" style="margin:0;flex:.7" onclick="trNew()">Пропуск</button>
+    </div>
+    <div class="row hide" id="tr-place" style="margin-top:10px">
+      <button class="btn" style="margin:0" onclick="trGo()">▶ Открыть сделку</button>
+      <button class="btn btn2" style="margin:0;flex:.5" onclick="trCancel()">Отмена</button>
     </div>
     <div id="tr-res" class="hide" style="margin-top:12px">
       <div class="kv" style="margin-top:0"><div><small>Результат</small><b id="tr-r">—</b></div><div><small>Пунктов</small><b id="tr-pts">—</b></div></div>
@@ -285,7 +289,7 @@ canvas{width:100%;height:150px;display:block}
       <div><small>Сделок</small><b id="ts-n">0</b></div><div><small>Винрейт</small><b id="ts-wr">—</b></div>
       <div><small>Итог, R</small><b id="ts-r">0</b></div><div><small>Серия побед</small><b id="ts-st">0</b></div>
     </div>
-    <p class="muted">R — сколько стопов заработал: тейк 1:2 = +2R, стоп = −1R. Цена золота — по токену PAXG, он повторяет золото.</p>
+    <p class="muted">R — сколько стопов заработал: тейк в 2 раза дальше стопа = +2R, стоп = −1R. Цена золота — по токену PAXG, он повторяет золото.</p>
     <button class="btn btn2" onclick="trReset()">Сбросить статистику</button>
   </div>
 </section>
@@ -587,9 +591,9 @@ function drawEq(T){
 (async()=>{ J=await loadJournal(); drawList(); drawStats(); })();
 
 /* ---------- тренажёр ---------- */
-const TR={bars:[],shown:0,fut:0,trade:null,anim:null,st:{n:0,w:0,r:0,streak:0}};
+const TR={bars:[],shown:0,fut:0,vis:90,place:null,trade:null,frz:null,drag:null,anim:null,st:{n:0,w:0,r:0,streak:0}};
 const TFMS={'5m':3e5,'15m':9e5,'1h':36e5};
-const SHOW=140, FUT=90;
+const SHOW=140, FUT=90, AXIS=54;
 seg('tr-sym',()=>trNew()); seg('tr-tf',()=>trNew());
 async function trFetch(url){
   for(const host of ['https://data-api.binance.vision','https://api.binance.com']){
@@ -597,9 +601,11 @@ async function trFetch(url){
   }
   throw new Error('нет связи');
 }
-async function trNew(){
+function trUI(mode){ $('tr-act').classList.toggle('hide',mode!=='act'); $('tr-place').classList.toggle('hide',mode!=='place'); $('tr-res').classList.toggle('hide',mode!=='res'); }
+async function trNew(tries=0){
   if(TR.anim){clearInterval(TR.anim);TR.anim=null}
-  TR.trade=null; $('tr-res').classList.add('hide'); $('tr-act').classList.remove('hide');
+  TR.trade=null; TR.place=null; TR.frz=null; trUI('act');
+  $('tr-hint').textContent='Как думаешь, куда пойдёт цена? Нажми BUY или SELL.';
   $('tr-msg').textContent='Загружаю график…'; $('tr-msg').style.display='grid';
   const sym=segVal('tr-sym'), tf=segVal('tr-tf'), ms=TFMS[tf];
   const from=new Date('2023-01-01').getTime(), to=Date.now()-(SHOW+FUT+20)*ms;
@@ -607,51 +613,83 @@ async function trNew(){
   try{
     const k=await trFetch(`/api/v3/klines?symbol=${sym}&interval=${tf}&startTime=${start}&limit=${SHOW+FUT}`);
     TR.bars=k.map(x=>({t:x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4]}));
-    if(TR.bars.length<SHOW+20) return trNew();
-    // отсекаем «мёртвые» куски без движения (выходные у PAXG торгуются вяло)
     const rng=TR.bars.slice(0,SHOW).reduce((a,b)=>a+(b.h-b.l),0)/SHOW;
     const flat=TR.bars.slice(0,SHOW).filter(x=>x.h-x.l<rng*0.2).length;
-    if(rng<=0 || flat>SHOW*0.15) return trNew();
+    if((TR.bars.length<SHOW+20 || rng<=0 || flat>SHOW*0.15) && tries<6) return trNew(tries+1);
   }catch(e){ $('tr-msg').textContent='Не удалось загрузить график. Проверь интернет.'; return; }
-  TR.shown=SHOW; TR.fut=0;
-  const atr=TR.bars.slice(SHOW-14,SHOW).reduce((a,b)=>a+b.h-b.l,0)/14;
-  const sl=trRound(atr*1.5); $('tr-sl').value=sl; $('tr-tp').value=trRound(sl*2);
-  $('tr-hint').textContent=`Средняя свеча сейчас ≈ ${trRound(atr)} п. Стоп по умолчанию — 1,5 свечи, тейк 1:2.`;
-  $('tr-msg').style.display='none'; trDraw();
+  TR.shown=SHOW; TR.fut=0; $('tr-msg').style.display='none'; trDraw();
 }
-function trRound(v){ return v>=100?Math.round(v/10)*10:v>=10?Math.round(v):Math.round(v*10)/10 }
+function trAtr(){ return TR.bars.slice(TR.shown-14,TR.shown).reduce((a,b)=>a+b.h-b.l,0)/14 }
+function trZoom(d){ haptic(); TR.vis=Math.max(30,Math.min(140,TR.vis+(d>0?-20:20))); trDraw(); }
+function trRange(view){
+  let lo=Math.min(...view.map(b=>b.l)), hi=Math.max(...view.map(b=>b.h));
+  const P=TR.trade||TR.place; if(P){ lo=Math.min(lo,P.sl,P.tp); hi=Math.max(hi,P.sl,P.tp); }
+  if(TR.frz){ lo=Math.min(lo,TR.frz.lo); hi=Math.max(hi,TR.frz.hi); }
+  const pad=(hi-lo)*.06; return {lo:lo-pad,hi:hi+pad};
+}
+function trGeom(){
+  const c=$('tr-cv'), W=c.clientWidth, H=320, n=TR.shown+TR.fut, off=Math.max(0,n-TR.vis);
+  const view=TR.bars.slice(off,n), R=trRange(view);
+  return {W,H,n,off,view,lo:R.lo,hi:R.hi,cw:(W-AXIS-6)/TR.vis,Y:v=>10+(R.hi-v)/(R.hi-R.lo)*(H-20),P:y=>R.hi-(y-10)/(H-20)*(R.hi-R.lo)};
+}
+function trFmt(v){ return v.toFixed(v>1000?1:2) }
 function trDraw(){
-  const c=$('tr-cv'), dpr=window.devicePixelRatio||1, W=c.clientWidth, H=300;
+  const c=$('tr-cv'), dpr=window.devicePixelRatio||1; if(!TR.bars.length) return;
+  const g=trGeom(), {W,H,Y,view,off,cw}=g;
   c.width=W*dpr; c.height=H*dpr; const x=c.getContext('2d'); x.scale(dpr,dpr); x.clearRect(0,0,W,H);
-  const n=TR.shown+TR.fut, view=TR.bars.slice(Math.max(0,n-110),n);
-  if(!view.length) return;
-  const T=TR.trade; let lo=Math.min(...view.map(b=>b.l)), hi=Math.max(...view.map(b=>b.h));
-  if(T){ lo=Math.min(lo,T.sl,T.tp); hi=Math.max(hi,T.sl,T.tp); }
-  const pad=(hi-lo)*.06; lo-=pad; hi+=pad;
-  const axis=52, cw=(W-axis-6)/110, Y=v=>8+(hi-v)/(hi-lo)*(H-16);
-  x.font='10px Inter,sans-serif'; x.fillStyle='#7d8597'; x.strokeStyle='rgba(255,255,255,.05)';
-  for(let i=0;i<5;i++){ const v=lo+(hi-lo)*i/4, y=Y(v); x.beginPath(); x.moveTo(0,y); x.lineTo(W-axis,y); x.stroke(); x.fillText(v.toFixed(v>1000?1:2),W-axis+4,y+3); }
-  const off=Math.max(0,n-110);
+  x.font='10px Inter,sans-serif'; x.strokeStyle='rgba(255,255,255,.05)'; x.fillStyle='#7d8597';
+  for(let i=0;i<5;i++){ const v=g.lo+(g.hi-g.lo)*i/4, y=Y(v); x.beginPath(); x.moveTo(0,y); x.lineTo(W-AXIS,y); x.stroke(); x.fillText(trFmt(v),W-AXIS+4,y+3); }
   view.forEach((b,i)=>{
-    const gi=off+i, cx=4+i*cw+cw/2, up=b.c>=b.o, fut=gi>=TR.shown;
+    const cx=4+i*cw+cw/2, up=b.c>=b.o, fut=off+i>=TR.shown;
     x.strokeStyle=x.fillStyle= up?(fut?'#7ff0c8':'#22d39a'):(fut?'#ff9aa4':'#ff5d6c');
-    x.beginPath(); x.moveTo(cx,Y(b.h)); x.lineTo(cx,Y(b.l)); x.stroke();
-    const y1=Y(Math.max(b.o,b.c)), y2=Y(Math.min(b.o,b.c)); x.fillRect(cx-cw*.35,y1,cw*.7,Math.max(1,y2-y1));
+    x.lineWidth=Math.max(1,cw*.12); x.beginPath(); x.moveTo(cx,Y(b.h)); x.lineTo(cx,Y(b.l)); x.stroke();
+    const y1=Y(Math.max(b.o,b.c)), y2=Y(Math.min(b.o,b.c)); x.fillRect(cx-cw*.36,y1,cw*.72,Math.max(1,y2-y1));
   });
-  if(T){
-    const line=(v,col,txt)=>{ x.strokeStyle=col; x.setLineDash([5,4]); x.beginPath(); x.moveTo(0,Y(v)); x.lineTo(W-axis,Y(v)); x.stroke(); x.setLineDash([]); x.fillStyle=col; x.fillText(txt,6,Y(v)-4); };
-    line(T.tp,'#22d39a','TP'); line(T.sl,'#ff5d6c','SL'); line(T.e,'#f7c25c','Вход');
-    const ex=4+(TR.shown-1-off)*cw+cw/2; x.strokeStyle='rgba(247,194,92,.4)'; x.beginPath(); x.moveTo(ex,0); x.lineTo(ex,H); x.stroke();
+  x.lineWidth=1;
+  const P=TR.trade||TR.place;
+  if(P){
+    const tag=(v,col,txt,bold)=>{ const y=Y(v); x.strokeStyle=col; x.lineWidth=bold?2:1; x.setLineDash(bold?[]:[5,4]); x.beginPath(); x.moveTo(0,y); x.lineTo(W-AXIS,y); x.stroke(); x.setLineDash([]); x.lineWidth=1;
+      x.fillStyle=col; x.fillRect(W-AXIS,y-9,AXIS,18); x.fillStyle='#0b0d14'; x.font='bold 10px Inter,sans-serif'; x.fillText(txt,W-AXIS+4,y+3.5); x.font='10px Inter,sans-serif'; };
+    const live=!!TR.place;
+    tag(P.tp,'#22d39a','TP '+Math.abs(P.tp-P.e).toFixed(1),live); tag(P.sl,'#ff5d6c','SL '+Math.abs(P.e-P.sl).toFixed(1),live); tag(P.e,'#f7c25c',trFmt(P.e),false);
+    if(live){ x.fillStyle='rgba(255,255,255,.75)'; x.font='11px Inter,sans-serif'; const mx=(W-AXIS)/2-18; x.fillText('⇕ тяни',mx,Y(P.tp)+(P.tp>P.e?-6:14)); x.fillText('⇕ тяни',mx,Y(P.sl)+(P.sl>P.e?-6:14)); x.font='10px Inter,sans-serif'; }
+    const ex=4+(TR.shown-1-off)*cw+cw/2; if(ex>0){ x.strokeStyle='rgba(247,194,92,.35)'; x.beginPath(); x.moveTo(ex,0); x.lineTo(ex,H); x.stroke(); }
   } else {
-    const last=view[view.length-1]; x.fillStyle='#f7c25c'; x.fillRect(W-axis,Y(last.c)-7,axis,14); x.fillStyle='#2a1a00'; x.fillText(last.c.toFixed(last.c>1000?1:2),W-axis+4,Y(last.c)+3);
+    const last=view[view.length-1], y=Y(last.c); x.fillStyle='#f7c25c'; x.fillRect(W-AXIS,y-9,AXIS,18); x.fillStyle='#2a1a00'; x.fillText(trFmt(last.c),W-AXIS+4,y+3.5);
   }
 }
-function trOpen(dir){
-  if(TR.trade||!TR.bars.length) return; haptic('medium');
-  const sl=+$('tr-sl').value, tp=+$('tr-tp').value; if(!(sl>0&&tp>0)) return toast('Укажи стоп и тейк');
-  const e=TR.bars[TR.shown-1].c;
-  TR.trade={dir,e,sl:e-dir*sl,tp:e+dir*tp,sld:sl,tpd:tp};
-  $('tr-act').classList.add('hide'); trDraw();
+function trPlace(dir){
+  if(TR.trade||TR.place||!TR.bars.length) return; haptic('medium');
+  const e=TR.bars[TR.shown-1].c, a=trAtr();
+  TR.place={dir,e,sl:e-dir*a*1.5,tp:e+dir*a*3};
+  const g=trGeom(); TR.frz={lo:Math.min(g.lo,e-a*6),hi:Math.max(g.hi,e+a*6)};
+  trUI('place'); trInfo(); trDraw();
+}
+function trInfo(){
+  const P=TR.place; if(!P) return; const s=Math.abs(P.e-P.sl), t=Math.abs(P.tp-P.e);
+  $('tr-hint').innerHTML=`Тяни пальцем <b class="dn">красную</b> линию — стоп, <b class="up">зелёную</b> — тейк.<br>Стоп ${s.toFixed(1)} п. · Тейк ${t.toFixed(1)} п. · <b>1:${(t/s).toFixed(1)}</b>`;
+}
+function trCancel(){ TR.place=null; TR.frz=null; trUI('act'); $('tr-hint').textContent='Как думаешь, куда пойдёт цена? Нажми BUY или SELL.'; trDraw(); }
+(function(){
+  const c=$('tr-cv'); const yOf=e=>e.clientY-c.getBoundingClientRect().top;
+  c.addEventListener('pointerdown',e=>{
+    if(!TR.place) return; const g=trGeom(), y=yOf(e), P=TR.place;
+    const dS=Math.abs(g.Y(P.sl)-y), dT=Math.abs(g.Y(P.tp)-y);
+    if(Math.min(dS,dT)>34) return;
+    TR.drag=dS<dT?'sl':'tp'; c.setPointerCapture(e.pointerId); haptic(); e.preventDefault();
+  });
+  c.addEventListener('pointermove',e=>{
+    if(!TR.drag||!TR.place) return; const g=trGeom(), P=TR.place, v=g.P(yOf(e)), d=P.dir, min=trAtr()*0.2;
+    if(TR.drag==='sl') P.sl = d>0 ? Math.min(v,P.e-min) : Math.max(v,P.e+min);
+    else P.tp = d>0 ? Math.max(v,P.e+min) : Math.min(v,P.e-min);
+    trInfo(); trDraw();
+  });
+  const up=()=>{ TR.drag=null; }; c.addEventListener('pointerup',up); c.addEventListener('pointercancel',up);
+})();
+function trGo(){
+  const P=TR.place; if(!P) return; haptic('medium');
+  TR.trade={...P,sld:Math.abs(P.e-P.sl),tpd:Math.abs(P.tp-P.e)}; TR.place=null;
+  $('tr-place').classList.add('hide'); $('tr-hint').textContent='Смотрим, что было дальше…';
   TR.anim=setInterval(()=>{
     const T=TR.trade, b=TR.bars[TR.shown+TR.fut]; let res=null;
     if(!b){ res={r:(TR.bars[TR.shown+TR.fut-1].c-T.e)*T.dir/T.sld, why:'время вышло'}; }
@@ -665,14 +703,15 @@ function trOpen(dir){
 }
 function trFinish(res){
   clearInterval(TR.anim); TR.anim=null;
-  const r=Math.round(res.r*100)/100, pts=Math.round(res.r*TR.trade.sld*100)/100, s=TR.st;
+  const r=Math.round(res.r*100)/100, pts=Math.round(res.r*TR.trade.sld*10)/10, s=TR.st;
   s.n++; s.r=Math.round((s.r+r)*100)/100; if(r>0){s.w++;s.streak++} else s.streak=0;
   store.set('trainer',JSON.stringify(s)); trStats();
   $('tr-r').textContent=(r>0?'+':'')+r+'R'; $('tr-r').className=r>0?'up':r<0?'dn':'';
   $('tr-pts').textContent=(pts>0?'+':'')+pts; $('tr-pts').className=r>0?'up':r<0?'dn':'';
   const d=new Date(TR.bars[TR.shown-1].t);
+  $('tr-hint').textContent='';
   $('tr-when').textContent=`${res.why==='тейк'?'✅ Тейк!':res.why==='стоп'?'❌ Стоп':'⏱ Закрыто по времени'} · Это было ${d.toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}`;
-  $('tr-res').classList.remove('hide');
+  trUI('res');
   try{ tg.HapticFeedback.notificationOccurred(r>0?'success':'error') }catch(e){}
 }
 function trStats(){ const s=TR.st; $('ts-n').textContent=s.n; $('ts-wr').textContent=s.n?Math.round(s.w/s.n*100)+'%':'—';
