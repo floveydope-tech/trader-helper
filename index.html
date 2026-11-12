@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Trader Helper</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#07090f;--card:rgba(22,26,38,.72);--card2:#121622;--tx:#eef1f7;--hint:#7d8597;
+  --acc:#f7c25c;--acc2:#ffe3a3;--accd:#c98a1c;--up:#22d39a;--dn:#ff5d6c;--line:rgba(255,255,255,.07);
+  --grad:linear-gradient(135deg,#ffe3a3 0%,#f7c25c 45%,#d9931f 100%);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{background:var(--bg)}
+body{margin:0;color:var(--tx);font:15px/1.45 Inter,-apple-system,BlinkMacSystemFont,Roboto,sans-serif;padding-bottom:104px;min-height:100vh;
+  background:radial-gradient(900px 420px at 85% -120px,rgba(247,194,92,.18),transparent 60%),
+             radial-gradient(700px 380px at -10% 10%,rgba(80,110,255,.10),transparent 60%),var(--bg);background-attachment:fixed}
+header{padding:16px 16px 8px;display:flex;align-items:center;justify-content:space-between}
+.brand{display:flex;align-items:center;gap:10px}
+.logo{width:38px;height:38px;border-radius:12px;background:var(--grad);display:grid;place-items:center;box-shadow:0 6px 20px rgba(247,194,92,.35)}
+header h1{font-size:18px;margin:0;font-weight:800;letter-spacing:-.3px}
+header h1 span{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{font-size:11px;color:var(--hint);margin-top:1px}
+.clock{text-align:right}
+#clk{font-size:17px;font-weight:700;font-variant-numeric:tabular-nums}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--acc2);background:rgba(247,194,92,.1);border:1px solid rgba(247,194,92,.25);padding:3px 8px;border-radius:20px;margin-top:3px}
+.chip:before{content:"";width:6px;height:6px;border-radius:50%;background:var(--up);box-shadow:0 0 8px var(--up)}
+.chip.off:before{background:var(--hint);box-shadow:none}
+main{padding:0 12px}
+.page{display:none}.page.on{display:block;animation:f .25s ease}
+@keyframes f{from{opacity:0;transform:translateY(8px)}to{opacity:1}}
+.card{position:relative;background:var(--card);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-radius:22px;padding:16px;margin:12px 0;
+  border:1px solid var(--line);box-shadow:0 10px 30px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.04)}
+.card h2{font-size:15px;margin:0 0 12px;font-weight:700;letter-spacing:-.2px;display:flex;align-items:center;gap:8px}
+.card h2 .ic{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;background:rgba(247,194,92,.12);font-size:15px}
+.hero{background:linear-gradient(160deg,rgba(247,194,92,.16),rgba(22,26,38,.75) 55%);border-color:rgba(247,194,92,.22)}
+.row{display:flex;gap:8px}.row>*{flex:1;min-width:0}
+label{display:block;font-size:11px;font-weight:600;color:var(--hint);margin:10px 0 5px;text-transform:uppercase;letter-spacing:.4px}
+input,select,textarea{width:100%;background:rgba(255,255,255,.04);color:var(--tx);border:1px solid var(--line);border-radius:12px;padding:12px;font:500 16px Inter,sans-serif;outline:none;transition:.15s;-webkit-appearance:none;appearance:none}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237d8597' stroke-width='1.6' fill='none'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:34px}
+input:focus,select:focus,textarea:focus{border-color:rgba(247,194,92,.6);background:rgba(247,194,92,.05);box-shadow:0 0 0 3px rgba(247,194,92,.12)}
+textarea{min-height:64px;resize:vertical}
+button{border:0;border-radius:14px;padding:13px;font:700 15px Inter,sans-serif;cursor:pointer;transition:transform .1s}
+button:active{transform:scale(.97)}
+.btn{background:var(--grad);color:#2a1a00;width:100%;margin-top:14px;box-shadow:0 8px 24px rgba(247,194,92,.28)}
+.btn2{background:rgba(255,255,255,.05);color:var(--tx);border:1px solid var(--line);box-shadow:none}
+.seg{display:flex;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:13px;padding:3px;gap:3px}
+.seg button{flex:1;background:none;color:var(--hint);padding:9px 4px;font-size:13px;border-radius:10px;font-weight:600}
+.seg button.on{background:rgba(255,255,255,.09);color:var(--tx);box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.seg button.on.win{background:var(--up);color:#00261a}.seg button.on.loss{background:var(--dn);color:#2b0006}
+.seg button.on.buy{background:var(--up);color:#00261a}.seg button.on.sell{background:var(--dn);color:#2b0006}
+.lotbox{display:flex;align-items:flex-end;justify-content:space-between;margin-top:16px;padding-top:14px;border-top:1px dashed var(--line)}
+.big{font-size:44px;line-height:1;font-weight:800;letter-spacing:-1.5px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;font-variant-numeric:tabular-nums}
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.kv div{background:rgba(255,255,255,.035);border:1px solid var(--line);border-radius:14px;padding:10px 11px}
+.kv b{display:block;font-size:17px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px}
+.kv small{color:var(--hint);font-size:11px;font-weight:500}
+.up{color:var(--up)}.dn{color:var(--dn)}.muted{color:var(--hint);font-size:12px}
+nav{position:fixed;bottom:calc(10px + env(safe-area-inset-bottom));left:10px;right:10px;background:rgba(18,22,34,.82);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  border:1px solid var(--line);border-radius:22px;display:flex;padding:6px;box-shadow:0 12px 34px rgba(0,0,0,.5);z-index:9}
+nav button{flex:1;background:none;color:var(--hint);font-size:10px;font-weight:600;padding:7px 0 6px;display:flex;flex-direction:column;align-items:center;gap:3px;border-radius:16px}
+nav button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+nav button.on{color:var(--acc2);background:rgba(247,194,92,.12)}
+.sess{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--line)}
+.sess:last-of-type{border:0}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#3a4050;margin-right:8px}
+.dot.on{background:var(--up);box-shadow:0 0 10px var(--up);animation:pl 1.6s infinite}
+@keyframes pl{50%{opacity:.45}}
+.bar{height:4px;border-radius:4px;background:rgba(255,255,255,.06);margin:6px 0 0 16px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--grad);border-radius:4px}
+.trade{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)}
+.trade:last-child{border:0}
+.tag{font-size:11px;padding:2px 8px;border-radius:7px;background:rgba(247,194,92,.1);color:var(--acc2);margin-left:6px;font-weight:600}
+.chk{display:flex;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line);text-transform:none;letter-spacing:0;font-size:14px;font-weight:500;color:var(--tx);margin:0}
+.chk input{width:22px;height:22px;flex:none;border-radius:7px;border:1.5px solid #4a5163;padding:0;background:transparent;display:grid;place-items:center}
+.chk input:checked{background:var(--grad);border-color:transparent}
+.chk input:checked:after{content:"✓";color:#2a1a00;font-weight:800;font-size:14px}
+canvas{width:100%;height:150px;display:block}
+.tv{height:420px;border-radius:16px;overflow:hidden}
+.pill{display:inline-block;padding:5px 10px;border-radius:20px;font-size:12px;background:rgba(255,255,255,.05);border:1px solid var(--line);margin:4px 4px 0 0}
+.del{background:none;color:var(--hint);padding:4px 8px;font-size:15px;box-shadow:none}
+.hide{display:none}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <div class="logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2a1a00" stroke-width="2.2" stroke-linecap="round"><path d="M6 4v16M6 8h-2v7h2M12 3v18M12 6h2v9h-2M18 6v14M18 10h2v6h-2"/></svg></div>
+    <div><h1>Trader <span>Helper</span></h1><div class="sub">помощник трейдера</div></div>
+  </div>
+  <div class="clock"><div id="clk">--:--</div><div class="chip" id="sessNow">…</div></div>
+</header>
+<main>
+
+<!-- ===== КАЛЬКУЛЯТОР ===== -->
+<section class="page on" id="p-calc">
+  <div class="card hero">
+    <h2><span class="ic">🧮</span>Калькулятор лота</h2>
+    <label>Инструмент</label>
+    <select id="c-sym"></select>
+    <div class="row">
+      <div><label>Депозит, $</label><input id="c-dep" type="number" inputmode="decimal" value="1000"></div>
+      <div><label>Риск, %</label><input id="c-risk" type="number" inputmode="decimal" value="1"></div>
+    </div>
+    <div class="row">
+      <div><label id="c-stopL">Стоп, пункты</label><input id="c-stop" type="number" inputmode="decimal" value="7"></div>
+      <div><label id="c-tpL">Тейк, пункты</label><input id="c-tp" type="number" inputmode="decimal" value="14"></div>
+    </div>
+    <div class="lotbox"><div><div class="muted">Твой лот</div><div class="big" id="c-lot">—</div></div>
+      <div style="text-align:right"><div class="muted">Риск</div><b class="dn" id="c-r2" style="font-size:18px">—</b></div></div>
+    <div class="kv">
+      <div><small>Риск от депозита</small><b class="dn" id="c-r">—</b></div>
+      <div><small>Прибыль на тейке</small><b class="up" id="c-p">—</b></div>
+      <div><small>Соотношение</small><b id="c-rr">—</b></div>
+      <div><small>1 пункт при этом лоте</small><b id="c-pv">—</b></div>
+    </div>
+    <p class="muted" id="c-note"></p>
+  </div>
+
+  <div class="card">
+    <h2><span class="ic">💰</span>Сколько заработаю / потеряю</h2>
+    <div class="row">
+      <div><label>Лот</label><input id="q-lot" type="number" inputmode="decimal" value="0.5"></div>
+      <div><label id="q-ptsL">Движение, пункты</label><input id="q-pts" type="number" inputmode="decimal" value="10"></div>
+    </div>
+    <div class="kv"><div><small>Результат</small><b id="q-res">—</b></div><div><small>Депозита</small><b id="q-pct">—</b></div></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="ic">🚀</span>Разгон депозита</h2>
+    <div class="row">
+      <div><label>Старт, $</label><input id="g-dep" type="number" inputmode="decimal" value="1000"></div>
+      <div><label>% в день</label><input id="g-pct" type="number" inputmode="decimal" value="2"></div>
+      <div><label>Дней</label><input id="g-days" type="number" inputmode="numeric" value="20"></div>
+    </div>
+    <div class="kv"><div><small>Итог</small><b class="up" id="g-res">—</b></div><div><small>Рост</small><b id="g-x">—</b></div></div>
+    <p class="muted">20 торговых дней ≈ месяц. Сложный процент — без вывода прибыли.</p>
+  </div>
+</section>
+
+<!-- ===== РЫНОК ===== -->
+<section class="page" id="p-mkt">
+  <div class="card">
+    <h2><span class="ic">🕒</span>Торговые сессии <span class="muted" id="tzLbl"></span></h2>
+    <div id="sessList"></div>
+  </div>
+  <div class="card" style="padding:8px">
+    <div class="seg" id="chartSym" style="margin-bottom:8px">
+      <button class="on" data-s="OANDA:XAUUSD">Золото</button>
+      <button data-s="FX:EURUSD">EUR/USD</button>
+      <button data-s="BITSTAMP:BTCUSD">BTC</button>
+      <button data-s="TVC:DXY">DXY</button>
+    </div>
+    <div class="tv" id="tvChart"></div>
+  </div>
+</section>
+
+<!-- ===== НОВОСТИ ===== -->
+<section class="page" id="p-news">
+  <div class="card">
+    <h2><span class="ic">📰</span>Экономический календарь</h2>
+    <p class="muted" style="margin-top:-4px">Важные новости по доллару двигают золото сильнее всего. За 30 минут до красных новостей бот пришлёт напоминание в чат.</p>
+    <div class="row" style="margin-top:6px">
+      <button class="btn2" onclick="sendBot({t:'news',on:true},'Напоминания о новостях включены')">🔔 Напоминать</button>
+      <button class="btn2" onclick="sendBot({t:'news',on:false},'Напоминания выключены')">🔕 Не надо</button>
+    </div>
+  </div>
+  <div class="card" style="padding:6px"><div class="tv" id="tvCal" style="height:560px"></div></div>
+</section>
+
+<!-- ===== АЛЕРТЫ ===== -->
+<section class="page" id="p-alert">
+  <div class="card">
+    <h2><span class="ic">🔔</span>Алерт по цене</h2>
+    <p class="muted" style="margin-top:-4px">Бот напишет в чат, когда цена дойдёт до уровня. Работает, даже если приложение закрыто.</p>
+    <label>Инструмент</label>
+    <select id="a-sym">
+      <option value="XAU/USD">Золото XAU/USD</option><option value="EUR/USD">EUR/USD</option>
+      <option value="GBP/USD">GBP/USD</option><option value="BTC/USD">BTC/USD</option>
+    </select>
+    <label>Цена</label><input id="a-price" type="number" inputmode="decimal" placeholder="например 4050">
+    <label>Заметка (необязательно)</label><input id="a-note" placeholder="например: ретест уровня, смотреть шорт">
+    <button class="btn" onclick="makeAlert()">Поставить алерт</button>
+    <p class="muted">Список и удаление алертов — командой /alerts в чате бота.</p>
+  </div>
+  <div class="card">
+    <h2><span class="ic">✅</span>Чеклист перед входом</h2>
+    <div id="chkList"></div>
+    <div class="kv"><div><small>Выполнено</small><b id="chkScore">0/0</b></div><div><small>Вердикт</small><b id="chkVerdict">—</b></div></div>
+    <button class="btn btn2" onclick="resetChk()">Сбросить</button>
+  </div>
+</section>
+
+<!-- ===== ДНЕВНИК ===== -->
+<section class="page" id="p-jrnl">
+  <div class="card">
+    <h2><span class="ic">📊</span>Статистика</h2>
+    <div class="seg" id="jPeriod" style="margin-bottom:10px">
+      <button data-p="1">Сегодня</button><button data-p="7" class="on">Неделя</button><button data-p="30">Месяц</button><button data-p="0">Всё</button>
+    </div>
+    <div class="kv">
+      <div><small>Итог</small><b id="s-net">—</b></div>
+      <div><small>Винрейт</small><b id="s-wr">—</b></div>
+      <div><small>Сделок</small><b id="s-n">—</b></div>
+      <div><small>Профит-фактор</small><b id="s-pf">—</b></div>
+      <div><small>Средний плюс</small><b class="up" id="s-aw">—</b></div>
+      <div><small>Средний минус</small><b class="dn" id="s-al">—</b></div>
+    </div>
+    <canvas id="eq" style="margin-top:12px"></canvas>
+    <div id="s-setups" style="margin-top:8px"></div>
+    <p class="muted" id="s-tip"></p>
+  </div>
+
+  <div class="card">
+    <h2><span class="ic">➕</span>Новая сделка</h2>
+    <div class="seg" id="j-side"><button class="on buy" data-v="BUY">BUY</button><button data-v="SELL">SELL</button></div>
+    <div class="row">
+      <div><label>Инструмент</label><input id="j-sym" value="XAUUSD"></div>
+      <div><label>Лот</label><input id="j-lot" type="number" inputmode="decimal" value="0.5"></div>
+    </div>
+    <label>Итог сделки</label>
+    <div class="seg" id="j-out"><button class="on win" data-v="win">✅ Плюс</button><button data-v="loss">❌ Минус</button><button data-v="be">➖ БУ</button></div>
+    <div class="row">
+      <div id="j-resBox"><label>Сумма, $</label><input id="j-res" type="number" inputmode="decimal" placeholder="например 120"></div>
+      <div><label>Сетап</label><input id="j-setup" list="setups" placeholder="ретест"></div>
+    </div>
+    <datalist id="setups"><option>Ретест<option>Пробой<option>Ложный пробой<option>Отбой от уровня<option>Трендовая<option>Двойная вершина<option>Новости</datalist>
+    <label>Эмоция</label>
+    <div class="seg" id="j-emo"><button class="on" data-v="😌">😌 Спокоен</button><button data-v="😬">😬 Сомнения</button><button data-v="😤">😤 Эмоции</button></div>
+    <label>Заметка</label><textarea id="j-note" placeholder="Почему вошёл, что сделал не так"></textarea>
+    <button class="btn" onclick="addTrade()">Сохранить сделку</button>
+  </div>
+
+  <div class="card">
+    <h2><span class="ic">🗂</span>Сделки</h2>
+    <div id="jList"><p class="muted">Пока пусто</p></div>
+  </div>
+</section>
+</main>
+
+<nav>
+  <button class="on" data-p="calc"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M8 7h8M8 12h.01M12 12h.01M16 12h.01M8 16h.01M12 16h.01M16 16h.01"/></svg>Расчёт</button>
+  <button data-p="mkt"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>Рынок</button>
+  <button data-p="news"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>Новости</button>
+  <button data-p="alert"><svg viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 1112 0v5l2 2H4z"/><path d="M10 20a2 2 0 004 0"/></svg>Алерты</button>
+  <button data-p="jrnl"><svg viewBox="0 0 24 24"><path d="M5 4h11a3 3 0 013 3v13H8a3 3 0 01-3-3z"/><path d="M5 17a3 3 0 013-3h11"/></svg>Дневник</button>
+</nav>
+
+<script>
+const tg = window.Telegram && Telegram.WebApp;
+const inTG = !!(tg && tg.initData);
+if (tg) { tg.ready(); tg.expand(); try { tg.setHeaderColor('#07090f'); tg.setBackgroundColor('#07090f'); tg.setBottomBarColor && tg.setBottomBarColor('#07090f'); } catch(e){} }
+const $ = id => document.getElementById(id);
+const fmt = (n, d=2) => (n>0?'+':'') + n.toLocaleString('ru-RU',{minimumFractionDigits:d,maximumFractionDigits:d});
+const usd = n => (n<0?'−':'') + '$' + Math.abs(n).toLocaleString('ru-RU',{maximumFractionDigits:2});
+function haptic(t='light'){ try{ tg.HapticFeedback.impactOccurred(t) }catch(e){} }
+function toast(msg){ if(inTG) tg.showAlert(msg); else alert(msg); }
+
+/* ---------- хранилище: Telegram CloudStorage (синхронно между устройствами), иначе localStorage ---------- */
+const store = {
+  get(k){ return new Promise(r=>{
+    if (inTG && tg.CloudStorage) tg.CloudStorage.getItem(k,(e,v)=>r(e?null:v||null));
+    else { try { r(localStorage.getItem(k)) } catch(e){ r(null) } } }) },
+  set(k,v){ return new Promise(r=>{
+    if (inTG && tg.CloudStorage) tg.CloudStorage.setItem(k,v,()=>r());
+    else { try { localStorage.setItem(k,v) } catch(e){} r(); } }) },
+};
+// дневник хранится кусками (лимит CloudStorage — 4096 символов на ключ)
+async function loadJournal(){
+  const n = parseInt(await store.get('j_n')||'0'); let all=[];
+  for (let i=0;i<n;i++){ const v=await store.get('j_'+i); if(v) try{ all=all.concat(JSON.parse(v)) }catch(e){} }
+  return all;
+}
+async function saveJournal(arr){
+  const chunks=[]; let cur=[];
+  for (const t of arr){ cur.push(t); if (JSON.stringify(cur).length>3800){ cur.pop(); chunks.push(cur); cur=[t]; } }
+  if (cur.length) chunks.push(cur);
+  for (let i=0;i<chunks.length;i++) await store.set('j_'+i, JSON.stringify(chunks[i]));
+  await store.set('j_n', String(chunks.length));
+}
+
+/* ---------- навигация ---------- */
+document.addEventListener('focusin',e=>{ if(e.target.matches('input:not([type=checkbox]),textarea,select')) document.querySelector('nav').style.display='none' });
+document.addEventListener('focusout',()=>setTimeout(()=>{ if(!document.activeElement.matches('input:not([type=checkbox]),textarea,select')) document.querySelector('nav').style.display='' },50));
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+  haptic();
+  document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));
+  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('on',p.id==='p-'+b.dataset.p));
+  if (b.dataset.p==='mkt') loadChart(); if (b.dataset.p==='news') loadCal(); if (b.dataset.p==='jrnl') drawStats();
+  window.scrollTo(0,0);
+});
+function seg(id, cb){ const el=$(id); el.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+  haptic(); el.querySelectorAll('button').forEach(x=>{x.classList.remove('on','buy','sell')});
+  b.classList.add('on'); if(b.dataset.v==='win')b.classList.add('win'); if(b.dataset.v==='loss')b.classList.add('loss'); if(b.dataset.v==='BUY')b.classList.add('buy'); if(b.dataset.v==='SELL')b.classList.add('sell');
+  cb && cb(b); }); }
+const segVal = id => $(id).querySelector('.on').dataset.v || $(id).querySelector('.on').dataset.p || $(id).querySelector('.on').dataset.s;
+
+/* ---------- калькулятор ---------- */
+// pv — $ за 1 пункт при 1 лоте; unit — что считаем пунктом
+const SYMS = {
+  'XAUUSD': {name:'Золото XAU/USD', pv:100, unit:'пункты ($1 движения цены)'},
+  'XAGUSD': {name:'Серебро XAG/USD', pv:50, unit:'центы движения'},
+  'EURUSD': {name:'EUR/USD', pv:10, unit:'пипсы'},
+  'GBPUSD': {name:'GBP/USD', pv:10, unit:'пипсы'},
+  'AUDUSD': {name:'AUD/USD', pv:10, unit:'пипсы'},
+  'BTCUSD': {name:'BTC/USD', pv:1, unit:'$ движения цены'},
+  'NAS100': {name:'NASDAQ 100', pv:1, unit:'пункты индекса'},
+  'US30':   {name:'Dow Jones US30', pv:1, unit:'пункты индекса'},
+};
+$('c-sym').innerHTML = Object.entries(SYMS).map(([k,v])=>`<option value="${k}">${v.name}</option>`).join('');
+function calc(){
+  const s=SYMS[$('c-sym').value], dep=+$('c-dep').value, risk=+$('c-risk').value, sl=+$('c-stop').value, tp=+$('c-tp').value;
+  const unit = s.unit.split(' ')[0];
+  $('c-stopL').textContent='Стоп, '+unit; $('c-tpL').textContent='Тейк, '+unit; $('q-ptsL').textContent='Движение, '+unit;
+  $('c-note').textContent = `1 лот ${s.name}: 1 ${unit.replace(/ы$/,'')} = $${s.pv}. Проверь размер контракта у своего брокера.`;
+  if (!(dep>0&&risk>0&&sl>0)) { $('c-lot').textContent='—'; return; }
+  const riskUsd=dep*risk/100; let lot=riskUsd/(sl*s.pv); lot=Math.floor(lot*100)/100;
+  $('c-lot').textContent = lot>0 ? lot.toFixed(2) : 'меньше 0.01';
+  const realRisk=lot*sl*s.pv;
+  $('c-r').textContent=(realRisk/dep*100).toFixed(2)+'%'; $('c-r2').textContent=usd(-realRisk);
+  $('c-p').textContent=tp>0?usd(lot*tp*s.pv):'—';
+  $('c-rr').textContent=tp>0?'1 : '+(tp/sl).toFixed(2):'—';
+  $('c-pv').textContent='$'+(lot*s.pv).toFixed(2);
+  const q=+$('q-lot').value*+$('q-pts').value*s.pv;
+  $('q-res').textContent=usd(q); $('q-res').className=q>=0?'up':'dn';
+  $('q-pct').textContent=dep>0?fmt(q/dep*100)+'%':'—';
+}
+function grow(){
+  const d=+$('g-dep').value,p=+$('g-pct').value,n=+$('g-days').value; const r=d*Math.pow(1+p/100,n);
+  $('g-res').textContent=usd(r); $('g-x').textContent='×'+(r/d).toFixed(2);
+}
+['c-sym','c-dep','c-risk','c-stop','c-tp','q-lot','q-pts'].forEach(id=>$(id).addEventListener('input',()=>{calc();saveCalc()}));
+['g-dep','g-pct','g-days'].forEach(id=>$(id).addEventListener('input',grow));
+async function saveCalc(){ await store.set('calc',JSON.stringify(['c-sym','c-dep','c-risk','c-stop','c-tp','q-lot'].map(i=>$(i).value))) }
+(async()=>{ const v=await store.get('calc'); if(v) try{ JSON.parse(v).forEach((x,i)=>$(['c-sym','c-dep','c-risk','c-stop','c-tp','q-lot'][i]).value=x) }catch(e){} calc(); grow(); })();
+
+/* ---------- часы и сессии ---------- */
+const SESS=[ // часы UTC
+  {n:'🌏 Азия (Токио)',a:0,b:9},{n:'🇬🇧 Лондон',a:7,b:16},{n:'🇺🇸 Нью-Йорк',a:12,b:21},{n:'🔥 Лондон + Нью-Йорк',a:12,b:16}];
+const tzOff=-new Date().getTimezoneOffset()/60;
+$('tzLbl').textContent='(твоё время, UTC'+(tzOff>=0?'+':'')+tzOff+')';
+const hh=h=>String(((h+tzOff)%24+24)%24).padStart(2,'0')+':00';
+function tick(){
+  const now=new Date(), h=now.getUTCHours()+now.getUTCMinutes()/60, wd=now.getUTCDay();
+  $('clk').textContent=now.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+  const weekend = wd===6 || (wd===0 && h<22) || (wd===5 && h>=21);
+  const open = SESS.filter(s=>!weekend && h>=s.a && h<s.b);
+  $('sessNow').classList.toggle('off', weekend || !open.length);
+  $('sessNow').textContent = weekend ? 'Рынок закрыт' : (open.length ? open[open.length-1].n.replace(/^\S+ /,'') : 'Между сессиями');
+  $('sessList').innerHTML = SESS.map(s=>{
+    const on=!weekend&&h>=s.a&&h<s.b; let left;
+    if(on){ const m=Math.round((s.b-h)*60); left=`закроется через ${Math.floor(m/60)}ч ${m%60}м` }
+    else { let d=s.a-h; if(d<0)d+=24; const m=Math.round(d*60); left=weekend?'выходные':`откроется через ${Math.floor(m/60)}ч ${m%60}м` }
+    const pr=on?Math.round((h-s.a)/(s.b-s.a)*100):0;
+    return `<div class="sess"><div style="flex:1"><span class="dot ${on?'on':''}"></span><b style="font-weight:600">${s.n}</b><div class="muted" style="margin-left:16px">${hh(s.a)} – ${hh(s.b)}</div>${on?`<div class="bar"><i style="width:${pr}%"></i></div>`:''}</div><div class="muted" style="text-align:right;margin-left:10px">${left}</div></div>`;
+  }).join('') + `<p class="muted">Золото активнее всего на открытии Лондона и в пересечении Лондона с Нью-Йорком.</p>`;
+}
+tick(); setInterval(tick,30000);
+
+/* ---------- графики TradingView ---------- */
+let chartSym='OANDA:XAUUSD', chartLoaded='';
+function tvEmbed(el, src, cfg){
+  el.innerHTML='<div class="tradingview-widget-container" style="height:100%"><div class="tradingview-widget-container__widget" style="height:100%"></div></div>';
+  const s=document.createElement('script'); s.src=src; s.async=true; s.innerHTML=JSON.stringify(cfg);
+  el.firstChild.appendChild(s);
+}
+const dark = true;
+function loadChart(){
+  if (chartLoaded===chartSym) return; chartLoaded=chartSym;
+  tvEmbed($('tvChart'),'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js',
+    {autosize:true,symbol:chartSym,interval:'15',timezone:'Etc/UTC',theme:dark?'dark':'light',style:'1',locale:'ru',
+     hide_side_toolbar:true,allow_symbol_change:true,calendar:false,support_host:'https://www.tradingview.com'});
+}
+seg('chartSym',b=>{chartSym=b.dataset.s;loadChart()});
+let calLoaded=false;
+function loadCal(){
+  if(calLoaded) return; calLoaded=true;
+  tvEmbed($('tvCal'),'https://s3.tradingview.com/external-embedding/embed-widget-events.js',
+    {colorTheme:dark?'dark':'light',isTransparent:true,width:'100%',height:'100%',locale:'ru',importanceFilter:'0,1',countryFilter:'us,eu,gb,cn'});
+}
+
+/* ---------- отправка данных боту ---------- */
+function sendBot(obj, okMsg){
+  haptic('medium');
+  if (inTG) {
+    try { tg.sendData(JSON.stringify(obj)); return; }      // работает, если приложение открыто кнопкой внизу чата
+    catch(e){}
+    toast('Открой приложение кнопкой «📱 Помощник» внизу чата бота — тогда бот получит данные.');
+  } else toast('Демо-режим: в Telegram это уйдёт боту. ' + (okMsg||''));
+}
+function makeAlert(){
+  const p=parseFloat(String($('a-price').value).replace(',','.'));
+  if(!(p>0)) return toast('Укажи цену');
+  sendBot({t:'alert',s:$('a-sym').value,p:p,n:$('a-note').value.slice(0,120)},'Алерт поставлен');
+}
+
+/* ---------- чеклист ---------- */
+const CHK=['Вход по моему сетапу, а не «на эмоциях»','Тренд старшего ТФ (H1) за меня','Стоп стоит за структурой, а не «на глаз»','Соотношение риск/прибыль от 1:1.5','Риск на сделку не больше 1–2%','В ближайшие 30 минут нет красных новостей','Сегодня не превышен дневной лимит убытка','Я не отыгрываюсь после минуса'];
+let chk=new Set();
+function drawChk(){
+  $('chkList').innerHTML=CHK.map((c,i)=>`<label class="chk"><input type="checkbox" ${chk.has(i)?'checked':''} onchange="toggleChk(${i},this.checked)"> ${c}</label>`).join('');
+  const n=chk.size; $('chkScore').textContent=n+'/'+CHK.length;
+  const v=$('chkVerdict');
+  if(n===CHK.length){v.textContent='Можно входить';v.className='up'}
+  else if(n>=CHK.length-2){v.textContent='Подумай ещё';v.style.color='var(--acc)';v.className=''}
+  else {v.textContent='Лучше пропустить';v.className='dn'}
+}
+function toggleChk(i,on){ haptic(); on?chk.add(i):chk.delete(i); drawChk(); }
+function resetChk(){ chk.clear(); drawChk(); }
+drawChk();
+
+/* ---------- дневник ---------- */
+let J=[];
+seg('j-side'); seg('j-emo'); seg('j-out',b=>{ $('j-resBox').style.opacity=b.dataset.v==='be'?.4:1; $('j-res').disabled=b.dataset.v==='be'; }); seg('jPeriod',()=>drawStats());
+async function addTrade(){
+  const out=segVal('j-out'); let r=Math.abs(parseFloat(String($('j-res').value).replace(',','.').replace('-','')));
+  if(out==='be') r=0; else if(isNaN(r)||r===0) return toast('Укажи сумму сделки в $'); else if(out==='loss') r=-r;
+  J.unshift({d:Date.now(),side:segVal('j-side'),sym:$('j-sym').value.trim().toUpperCase()||'XAUUSD',lot:+$('j-lot').value||0,
+            r:r,setup:$('j-setup').value.trim(),emo:segVal('j-emo'),note:$('j-note').value.trim().slice(0,300)});
+  await saveJournal(J); haptic('medium');
+  $('j-res').value='';$('j-note').value='';
+  drawStats(); drawList();
+  try{ tg.HapticFeedback.notificationOccurred(r>=0?'success':'warning') }catch(e){}
+}
+async function delTrade(i){
+  const go = () => { J.splice(i,1); saveJournal(J).then(()=>{drawStats();drawList()}) };
+  if(inTG) tg.showConfirm('Удалить сделку?',ok=>ok&&go()); else if(confirm('Удалить сделку?')) go();
+}
+function drawList(){
+  if(!J.length){ $('jList').innerHTML='<p class="muted">Пока пусто — добавь первую сделку</p>'; return; }
+  $('jList').innerHTML=J.slice(0,60).map((t,i)=>`<div class="trade"><div>
+     <b class="${t.side==='BUY'?'up':'dn'}">${t.side}</b> ${t.sym} <span class="muted">${t.lot}</span>${t.setup?`<span class="tag">${t.setup}</span>`:''}
+     <div class="muted">${new Date(t.d).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})} ${t.emo||''} ${t.note?'· '+t.note.replace(/</g,'&lt;').slice(0,60):''}</div></div>
+     <div style="display:flex;align-items:center"><b class="${t.r>=0?'up':'dn'}">${usd(t.r)}</b><button class="del" onclick="delTrade(${i})">✕</button></div></div>`).join('');
+}
+function drawStats(){
+  const p=+segVal('jPeriod'); const now=new Date();
+  const from = p===0?0 : p===1? new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime() : Date.now()-p*864e5;
+  const T=J.filter(t=>t.d>=from).slice().reverse();
+  const w=T.filter(t=>t.r>0), l=T.filter(t=>t.r<0), net=T.reduce((a,t)=>a+t.r,0);
+  const gw=w.reduce((a,t)=>a+t.r,0), gl=-l.reduce((a,t)=>a+t.r,0);
+  $('s-net').textContent=T.length?usd(net):'—'; $('s-net').className=net>=0?'up':'dn';
+  $('s-wr').textContent=T.length?Math.round(w.length/T.length*100)+'%':'—';
+  $('s-n').textContent=T.length; $('s-pf').textContent=gl>0?(gw/gl).toFixed(2):(gw>0?'∞':'—');
+  $('s-aw').textContent=w.length?usd(gw/w.length):'—'; $('s-al').textContent=l.length?usd(-gl/l.length):'—';
+  // по сетапам
+  const by={}; T.forEach(t=>{const k=t.setup||'без сетапа'; (by[k]=by[k]||{n:0,r:0}).n++; by[k].r+=t.r});
+  $('s-setups').innerHTML=Object.entries(by).sort((a,b)=>b[1].r-a[1].r).map(([k,v])=>`<span class="pill">${k}: <b class="${v.r>=0?'up':'dn'}">${usd(v.r)}</b> · ${v.n}</span>`).join('');
+  // подсказка
+  const emo=T.filter(t=>t.emo==='😤'); let tip='';
+  if(emo.length>=2){ const er=emo.reduce((a,t)=>a+t.r,0); if(er<0) tip=`Сделки «на эмоциях» дали ${usd(er)}. Может, их стоит пропускать?`; }
+  const worst=Object.entries(by).sort((a,b)=>a[1].r-b[1].r)[0];
+  if(!tip && worst && worst[1].r<0 && worst[1].n>=3) tip=`Сетап «${worst[0]}» в минусе (${usd(worst[1].r)}) — разбери эти сделки.`;
+  $('s-tip').textContent=tip;
+  drawEq(T);
+}
+function drawEq(T){
+  const c=$('eq'), dpr=window.devicePixelRatio||1, W=c.clientWidth, H=140;
+  c.width=W*dpr; c.height=H*dpr; const x=c.getContext('2d'); x.scale(dpr,dpr); x.clearRect(0,0,W,H);
+  if(T.length<2){ x.fillStyle='#8a90a0'; x.font='12px sans-serif'; x.fillText('Кривая баланса появится после 2 сделок',8,H/2); return; }
+  let s=0; const pts=[0].concat(T.map(t=>s+=t.r)); const mn=Math.min(...pts), mx=Math.max(...pts), rg=(mx-mn)||1;
+  const X=i=>6+i*(W-12)/(pts.length-1), Y=v=>H-8-(v-mn)/rg*(H-16);
+  x.strokeStyle='rgba(255,255,255,.12)'; x.setLineDash([3,4]); x.beginPath(); x.moveTo(0,Y(0)); x.lineTo(W,Y(0)); x.stroke(); x.setLineDash([]);
+  const col=s>=0?'#22d39a':'#ff5d6c'; const g=x.createLinearGradient(0,0,0,H); g.addColorStop(0,col+'55'); g.addColorStop(1,col+'00');
+  x.beginPath(); pts.forEach((v,i)=>i?x.lineTo(X(i),Y(v)):x.moveTo(X(i),Y(v))); x.lineTo(X(pts.length-1),H); x.lineTo(X(0),H); x.fillStyle=g; x.fill();
+  x.beginPath(); pts.forEach((v,i)=>i?x.lineTo(X(i),Y(v)):x.moveTo(X(i),Y(v))); x.strokeStyle=col; x.lineWidth=2; x.stroke();
+}
+(async()=>{ J=await loadJournal(); drawList(); drawStats(); })();
+</script>
+</body>
+</html>
