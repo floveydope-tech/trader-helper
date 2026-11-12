@@ -257,7 +257,7 @@ canvas{width:100%;height:150px;display:block}
   <div class="card">
     <h2><span class="ic">🎯</span>Тренажёр: куда пойдёт цена?</h2>
     <div class="row">
-      <div class="seg" id="tr-sym"><button class="on" data-v="PAXGUSDT">Золото</button><button data-v="BTCUSDT">BTC</button></div>
+      <div class="seg" id="tr-sym"><button class="on" data-v="XAUUSDT">Золото</button><button data-v="BTCUSDT">BTC</button></div>
       <div class="seg" id="tr-tf"><button data-v="5m">M5</button><button class="on" data-v="15m">M15</button><button data-v="1h">H1</button></div>
     </div>
     <div style="position:relative;margin-top:10px">
@@ -289,7 +289,7 @@ canvas{width:100%;height:150px;display:block}
       <div><small>Сделок</small><b id="ts-n">0</b></div><div><small>Винрейт</small><b id="ts-wr">—</b></div>
       <div><small>Итог, R</small><b id="ts-r">0</b></div><div><small>Серия побед</small><b id="ts-st">0</b></div>
     </div>
-    <p class="muted">R — сколько стопов заработал: тейк в 2 раза дальше стопа = +2R, стоп = −1R. Цена золота — по токену PAXG, он повторяет золото.</p>
+    <p class="muted">R — сколько стопов заработал: тейк в 2 раза дальше стопа = +2R, стоп = −1R. Графики — реальные фьючерсы Binance на золото (XAUUSDT) и BTC. Таймфрейм можно переключать — момент тот же.</p>
     <button class="btn btn2" onclick="trReset()">Сбросить статистику</button>
   </div>
 </section>
@@ -344,7 +344,7 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   haptic();
   document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));
   document.querySelectorAll('.page').forEach(p=>p.classList.toggle('on',p.id==='p-'+b.dataset.p));
-  if (b.dataset.p==='mkt') loadChart(); if (b.dataset.p==='news') loadCal(); if (b.dataset.p==='jrnl') drawStats(); if (b.dataset.p==='train' && !TR.bars.length) trNew();
+  if (b.dataset.p==='mkt') loadChart(); if (b.dataset.p==='news') loadCal(); if (b.dataset.p==='jrnl') drawStats(); if (b.dataset.p==='train' && !TR.anchor) trNew();
   window.scrollTo(0,0);
 });
 function seg(id, cb){ const el=$(id); el.querySelectorAll('button').forEach(b=>b.onclick=()=>{
@@ -591,35 +591,55 @@ function drawEq(T){
 (async()=>{ J=await loadJournal(); drawList(); drawStats(); })();
 
 /* ---------- тренажёр ---------- */
-const TR={bars:[],shown:0,fut:0,vis:90,place:null,trade:null,frz:null,drag:null,anim:null,st:{n:0,w:0,r:0,streak:0}};
+const TR={cache:{},bars:[],anchor:0,tcut:0,vis:90,place:null,trade:null,frz:null,drag:null,anim:null,busy:false,st:{n:0,w:0,r:0,streak:0}};
 const TFMS={'5m':3e5,'15m':9e5,'1h':36e5};
-const SHOW=140, FUT=90, AXIS=54;
-seg('tr-sym',()=>trNew()); seg('tr-tf',()=>trNew());
-async function trFetch(url){
-  for(const host of ['https://data-api.binance.vision','https://api.binance.com']){
-    try{ const r=await fetch(host+url); if(r.ok) return await r.json(); }catch(e){}
+const SHOW=140, FUT=90, AXIS=54, HOUR=36e5;
+const TR_FROM={XAUUSDT:Date.UTC(2025,11,20),BTCUSDT:Date.UTC(2023,0,1)};
+seg('tr-sym',()=>trNew());
+seg('tr-tf',()=>trLoad());
+async function trFetch(q){
+  for(const host of ['https://fapi.binance.com','https://www.binance.com']){
+    try{ const r=await fetch(host+'/fapi/v1/klines?'+q); if(r.ok) return await r.json(); }catch(e){}
   }
   throw new Error('нет связи');
 }
+const trK=k=>k.map(x=>({t:x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4]}));
 function trUI(mode){ $('tr-act').classList.toggle('hide',mode!=='act'); $('tr-place').classList.toggle('hide',mode!=='place'); $('tr-res').classList.toggle('hide',mode!=='res'); }
+function trSi(){ let i=TR.bars.findIndex(b=>b.t>=TR.anchor); return i<0?TR.bars.length:i; }
+function trN(){ let i=TR.bars.findIndex(b=>b.t>=TR.tcut); return i<0?TR.bars.length:i; }
 async function trNew(tries=0){
   if(TR.anim){clearInterval(TR.anim);TR.anim=null}
-  TR.trade=null; TR.place=null; TR.frz=null; trUI('act');
+  TR.trade=null; TR.place=null; TR.frz=null; TR.cache={}; trUI('act');
   $('tr-hint').textContent='Как думаешь, куда пойдёт цена? Нажми BUY или SELL.';
-  $('tr-msg').textContent='Загружаю график…'; $('tr-msg').style.display='grid';
-  const sym=segVal('tr-sym'), tf=segVal('tr-tf'), ms=TFMS[tf];
-  const from=new Date('2023-01-01').getTime(), to=Date.now()-(SHOW+FUT+20)*ms;
-  const start=Math.floor(from+Math.random()*(to-from));
-  try{
-    const k=await trFetch(`/api/v3/klines?symbol=${sym}&interval=${tf}&startTime=${start}&limit=${SHOW+FUT}`);
-    TR.bars=k.map(x=>({t:x[0],o:+x[1],h:+x[2],l:+x[3],c:+x[4]}));
-    const rng=TR.bars.slice(0,SHOW).reduce((a,b)=>a+(b.h-b.l),0)/SHOW;
-    const flat=TR.bars.slice(0,SHOW).filter(x=>x.h-x.l<rng*0.2).length;
-    if((TR.bars.length<SHOW+20 || rng<=0 || flat>SHOW*0.15) && tries<6) return trNew(tries+1);
-  }catch(e){ $('tr-msg').textContent='Не удалось загрузить график. Проверь интернет.'; return; }
-  TR.shown=SHOW; TR.fut=0; $('tr-msg').style.display='none'; trDraw();
+  const sym=segVal('tr-sym'), from=TR_FROM[sym], to=Date.now()-FUT*HOUR-2*864e5;
+  // случайный час будний день, 01–21 UTC (живой рынок)
+  let a;
+  for(let k=0;k<50;k++){ a=Math.floor((from+Math.random()*(to-from))/HOUR)*HOUR; const d=new Date(a); if(d.getUTCDay()>=1&&d.getUTCDay()<=5&&d.getUTCHours()>=1&&d.getUTCHours()<=21) break; }
+  TR.anchor=a; TR.tcut=a;
+  await trLoad(tries);
 }
-function trAtr(){ return TR.bars.slice(TR.shown-14,TR.shown).reduce((a,b)=>a+b.h-b.l,0)/14 }
+async function trLoad(tries=0){
+  if(TR.anim||TR.busy) return;
+  const sym=segVal('tr-sym'), tf=segVal('tr-tf'), ms=TFMS[tf];
+  if(!TR.cache[tf]){
+    $('tr-msg').textContent='Загружаю график…'; $('tr-msg').style.display='grid'; TR.busy=true;
+    try{
+      const [b,f]=await Promise.all([
+        trFetch(`symbol=${sym}&interval=${tf}&endTime=${TR.anchor-1}&limit=${SHOW}`),
+        trFetch(`symbol=${sym}&interval=${tf}&startTime=${TR.anchor}&limit=${FUT}`)]);
+      TR.cache[tf]=trK(b).concat(trK(f));
+    }catch(e){ TR.busy=false; $('tr-msg').textContent='Не удалось загрузить график. Проверь интернет.'; return; }
+    TR.busy=false;
+    const bars=TR.cache[tf], pre=bars.filter(x=>x.t<TR.anchor);
+    const rng=pre.reduce((s,x)=>s+x.h-x.l,0)/Math.max(1,pre.length);
+    const flat=pre.filter(x=>x.h-x.l<rng*0.2).length;
+    if((pre.length<SHOW*0.8 || bars.length-pre.length<20 || flat>pre.length*0.15) && tries<6 && !TR.place && !TR.trade){ return trNew(tries+1); }
+  }
+  TR.bars=TR.cache[tf]; $('tr-msg').style.display='none';
+  if(TR.trade && !TR.anim){ /* после сделки на другом ТФ показываем то же время */ }
+  trDraw();
+}
+function trAtr(){ const si=trSi(); return TR.bars.slice(Math.max(0,si-14),si).reduce((a,b)=>a+b.h-b.l,0)/Math.min(14,si||1) }
 function trZoom(d){ haptic(); TR.vis=Math.max(30,Math.min(140,TR.vis+(d>0?-20:20))); trDraw(); }
 function trRange(view){
   let lo=Math.min(...view.map(b=>b.l)), hi=Math.max(...view.map(b=>b.h));
@@ -628,24 +648,23 @@ function trRange(view){
   const pad=(hi-lo)*.06; return {lo:lo-pad,hi:hi+pad};
 }
 function trGeom(){
-  const c=$('tr-cv'), W=c.clientWidth, H=320, n=TR.shown+TR.fut, off=Math.max(0,n-TR.vis);
+  const c=$('tr-cv'), W=c.clientWidth, H=320, n=trN(), off=Math.max(0,n-TR.vis);
   const view=TR.bars.slice(off,n), R=trRange(view);
   return {W,H,n,off,view,lo:R.lo,hi:R.hi,cw:(W-AXIS-6)/TR.vis,Y:v=>10+(R.hi-v)/(R.hi-R.lo)*(H-20),P:y=>R.hi-(y-10)/(H-20)*(R.hi-R.lo)};
 }
 function trFmt(v){ return v.toFixed(v>1000?1:2) }
 function trDraw(){
   const c=$('tr-cv'), dpr=window.devicePixelRatio||1; if(!TR.bars.length) return;
-  const g=trGeom(), {W,H,Y,view,off,cw}=g;
+  const g=trGeom(), {W,H,Y,view,off,cw}=g, si=trSi();
   c.width=W*dpr; c.height=H*dpr; const x=c.getContext('2d'); x.scale(dpr,dpr); x.clearRect(0,0,W,H);
   x.font='10px Inter,sans-serif'; x.strokeStyle='rgba(255,255,255,.05)'; x.fillStyle='#7d8597';
   for(let i=0;i<5;i++){ const v=g.lo+(g.hi-g.lo)*i/4, y=Y(v); x.beginPath(); x.moveTo(0,y); x.lineTo(W-AXIS,y); x.stroke(); x.fillText(trFmt(v),W-AXIS+4,y+3); }
   view.forEach((b,i)=>{
-    const cx=4+i*cw+cw/2, up=b.c>=b.o, fut=off+i>=TR.shown;
+    const cx=4+i*cw+cw/2, up=b.c>=b.o, fut=off+i>=si;
     x.strokeStyle=x.fillStyle= up?(fut?'#7ff0c8':'#22d39a'):(fut?'#ff9aa4':'#ff5d6c');
-    x.lineWidth=Math.max(1,cw*.12); x.beginPath(); x.moveTo(cx,Y(b.h)); x.lineTo(cx,Y(b.l)); x.stroke();
-    const y1=Y(Math.max(b.o,b.c)), y2=Y(Math.min(b.o,b.c)); x.fillRect(cx-cw*.36,y1,cw*.72,Math.max(1,y2-y1));
+    x.lineWidth=1; x.beginPath(); x.moveTo(cx,Y(b.h)); x.lineTo(cx,Y(b.l)); x.stroke();
+    const y1=Y(Math.max(b.o,b.c)), y2=Y(Math.min(b.o,b.c)); x.fillRect(cx-Math.max(1,cw*.38),y1,Math.max(2,cw*.76),Math.max(1,y2-y1));
   });
-  x.lineWidth=1;
   const P=TR.trade||TR.place;
   if(P){
     const tag=(v,col,txt,bold)=>{ const y=Y(v); x.strokeStyle=col; x.lineWidth=bold?2:1; x.setLineDash(bold?[]:[5,4]); x.beginPath(); x.moveTo(0,y); x.lineTo(W-AXIS,y); x.stroke(); x.setLineDash([]); x.lineWidth=1;
@@ -653,14 +672,14 @@ function trDraw(){
     const live=!!TR.place;
     tag(P.tp,'#22d39a','TP '+Math.abs(P.tp-P.e).toFixed(1),live); tag(P.sl,'#ff5d6c','SL '+Math.abs(P.e-P.sl).toFixed(1),live); tag(P.e,'#f7c25c',trFmt(P.e),false);
     if(live){ x.fillStyle='rgba(255,255,255,.75)'; x.font='11px Inter,sans-serif'; const mx=(W-AXIS)/2-18; x.fillText('⇕ тяни',mx,Y(P.tp)+(P.tp>P.e?-6:14)); x.fillText('⇕ тяни',mx,Y(P.sl)+(P.sl>P.e?-6:14)); x.font='10px Inter,sans-serif'; }
-    const ex=4+(TR.shown-1-off)*cw+cw/2; if(ex>0){ x.strokeStyle='rgba(247,194,92,.35)'; x.beginPath(); x.moveTo(ex,0); x.lineTo(ex,H); x.stroke(); }
+    const ex=4+(si-1-off)*cw+cw/2; if(ex>0){ x.strokeStyle='rgba(247,194,92,.35)'; x.beginPath(); x.moveTo(ex,0); x.lineTo(ex,H); x.stroke(); }
   } else {
     const last=view[view.length-1], y=Y(last.c); x.fillStyle='#f7c25c'; x.fillRect(W-AXIS,y-9,AXIS,18); x.fillStyle='#2a1a00'; x.fillText(trFmt(last.c),W-AXIS+4,y+3.5);
   }
 }
 function trPlace(dir){
   if(TR.trade||TR.place||!TR.bars.length) return; haptic('medium');
-  const e=TR.bars[TR.shown-1].c, a=trAtr();
+  const e=TR.bars[trSi()-1].c, a=trAtr();
   TR.place={dir,e,sl:e-dir*a*1.5,tp:e+dir*a*3};
   const g=trGeom(); TR.frz={lo:Math.min(g.lo,e-a*6),hi:Math.max(g.hi,e+a*6)};
   trUI('place'); trInfo(); trDraw();
@@ -690,11 +709,12 @@ function trGo(){
   const P=TR.place; if(!P) return; haptic('medium');
   TR.trade={...P,sld:Math.abs(P.e-P.sl),tpd:Math.abs(P.tp-P.e)}; TR.place=null;
   $('tr-place').classList.add('hide'); $('tr-hint').textContent='Смотрим, что было дальше…';
+  const ms=TFMS[segVal('tr-tf')];
   TR.anim=setInterval(()=>{
-    const T=TR.trade, b=TR.bars[TR.shown+TR.fut]; let res=null;
-    if(!b){ res={r:(TR.bars[TR.shown+TR.fut-1].c-T.e)*T.dir/T.sld, why:'время вышло'}; }
+    const T=TR.trade, n=trN(), b=TR.bars[n]; let res=null;
+    if(!b){ res={r:(TR.bars[n-1].c-T.e)*T.dir/T.sld, why:'время вышло'}; }
     else{
-      TR.fut++;
+      TR.tcut=b.t+ms;
       const hitSL = T.dir>0 ? b.l<=T.sl : b.h>=T.sl, hitTP = T.dir>0 ? b.h>=T.tp : b.l<=T.tp;
       if(hitSL) res={r:-1,why:'стоп'}; else if(hitTP) res={r:T.tpd/T.sld,why:'тейк'};
     }
@@ -708,8 +728,8 @@ function trFinish(res){
   store.set('trainer',JSON.stringify(s)); trStats();
   $('tr-r').textContent=(r>0?'+':'')+r+'R'; $('tr-r').className=r>0?'up':r<0?'dn':'';
   $('tr-pts').textContent=(pts>0?'+':'')+pts; $('tr-pts').className=r>0?'up':r<0?'dn':'';
-  const d=new Date(TR.bars[TR.shown-1].t);
-  $('tr-hint').textContent='';
+  const d=new Date(TR.anchor);
+  $('tr-hint').textContent='Можешь переключить M5 / M15 / H1 — увидишь этот же момент на другом таймфрейме.';
   $('tr-when').textContent=`${res.why==='тейк'?'✅ Тейк!':res.why==='стоп'?'❌ Стоп':'⏱ Закрыто по времени'} · Это было ${d.toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}`;
   trUI('res');
   try{ tg.HapticFeedback.notificationOccurred(r>0?'success':'error') }catch(e){}
