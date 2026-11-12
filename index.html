@@ -404,6 +404,7 @@ const NEWS_RU=[
  ['FOMC Meeting Minutes','Протокол ФРС','жёсткий тон → золото ↓'],
  ['Powell','Речь Пауэлла (ФРС)','резкие движения в обе стороны'],
  ['Fed Chair','Речь главы ФРС','резкие движения в обе стороны'],
+ ['FOMC Member','Речь члена ФРС','жёсткий тон → золото ↓'],
  ['Retail Sales','Розничные продажи','выше прогноза → золото ↓'],
  ['GDP','ВВП','выше прогноза → золото ↓'],
  ['ISM Manufacturing','Деловая активность (промышл.)','выше прогноза → золото ↓'],
@@ -435,6 +436,7 @@ function drawNews(){
   const f=segVal('nFilter'), now=Date.now();
   const ev=NEWS.filter(e=> f==='all' ? true : f==='high' ? e.impact==='High' : e.country==='USD')
                .filter(e=> e.impact!=='Low' || f==='all')
+               .filter(e=> new Date(e.date).toDateString()===new Date().toDateString() || new Date(e.date)>new Date())
                .map(e=>({...e,t:new Date(e.date)})).sort((a,b)=>a.t-b.t);
   if(!ev.length){ $('newsList').innerHTML='<p class="muted">На этой неделе таких новостей нет.</p>'; return; }
   let html='', day='';
