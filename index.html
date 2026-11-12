@@ -462,11 +462,10 @@ const SYMCODE={'XAU/USD':'XAU','EUR/USD':'EUR','GBP/USD':'GBP','BTC/USD':'BTC'};
 function sendBot(obj, okMsg){
   haptic('medium');
   // кнопка внизу чата (без query_id) — данные уходят напрямую; иначе — через ссылку /start в чат бота
-  if (inTG && !tg.initDataUnsafe.query_id) { try { tg.sendData(JSON.stringify(obj)); return; } catch(e){} }
-  let p = obj.t==='news' ? (obj.on?'newson':'newsoff')
-        : 'a_'+SYMCODE[obj.s]+'_'+String(obj.p).replace('.','p');
-  const url='https://t.me/'+BOT+'?start='+p;
-  if (inTG) tg.openTelegramLink(url); else location.href=url;
+  if (!inTG) return toast('Демо-режим: в Telegram это уйдёт боту.');
+  if (tg.initDataUnsafe.query_id)
+    return toast('Чтобы бот получил это, закрой приложение и открой его большой кнопкой «📱 Помощник» под полем ввода.');
+  try { tg.sendData(JSON.stringify(obj)); } catch(e){ toast('Открой приложение кнопкой «📱 Помощник» под полем ввода.'); }
 }
 function makeAlert(){
   const p=parseFloat(String($('a-price').value).replace(',','.'));
