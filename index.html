@@ -707,12 +707,21 @@ function trCancel(){ TR.place=null; TR.frz=null; trUI('act'); $('tr-hint').textC
 })();
 function trGo(){
   const P=TR.place; if(!P) return; haptic('medium');
-  TR.trade={...P,sld:Math.abs(P.e-P.sl),tpd:Math.abs(P.tp-P.e)}; TR.place=null;
+  TR.trade={...P,sld:Math.abs(P.e-P.sl),tpd:Math.abs(P.tp-P.e)}; TR.place=null; TR.extra=0; TR.more=false;
   $('tr-place').classList.add('hide'); $('tr-hint').textContent='Смотрим, что было дальше…';
   const ms=TFMS[segVal('tr-tf')];
   TR.anim=setInterval(()=>{
+    if(TR.more) return;
     const T=TR.trade, n=trN(), b=TR.bars[n]; let res=null;
-    if(!b){ res={r:(TR.bars[n-1].c-T.e)*T.dir/T.sld, why:'время вышло'}; }
+    if(!b){
+      // свечи кончились — догружаем следующие, пока цена не дойдёт до стопа или тейка
+      if(TR.extra<5000){ TR.more=true; const last=TR.bars[n-1];
+        trFetch(`symbol=${segVal('tr-sym')}&interval=${segVal('tr-tf')}&startTime=${last.t+ms}&limit=500`)
+          .then(k=>{ const nb=trK(k); if(nb.length){ TR.bars.push(...nb); TR.extra+=nb.length; } else TR.extra=1e9; })
+          .catch(()=>{ TR.extra=1e9; }).finally(()=>{ TR.more=false; });
+        return; }
+      res={r:(TR.bars[n-1].c-T.e)*T.dir/T.sld, why:'время вышло'};
+    }
     else{
       TR.tcut=b.t+ms;
       const hitSL = T.dir>0 ? b.l<=T.sl : b.h>=T.sl, hitTP = T.dir>0 ? b.h>=T.tp : b.l<=T.tp;
