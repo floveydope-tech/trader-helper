@@ -643,8 +643,8 @@ function trAtr(){ const si=trSi(); return TR.bars.slice(Math.max(0,si-14),si).re
 function trZoom(d){ haptic(); TR.vis=Math.max(30,Math.min(140,TR.vis+(d>0?-20:20))); trDraw(); }
 function trRange(view){
   let lo=Math.min(...view.map(b=>b.l)), hi=Math.max(...view.map(b=>b.h));
-  const P=TR.trade||TR.place; if(P){ lo=Math.min(lo,P.sl,P.tp); hi=Math.max(hi,P.sl,P.tp); }
-  if(TR.frz){ lo=Math.min(lo,TR.frz.lo); hi=Math.max(hi,TR.frz.hi); }
+  if(TR.place){ const P=TR.place; lo=Math.min(lo,P.sl,P.tp); hi=Math.max(hi,P.sl,P.tp); if(TR.frz){ lo=Math.min(lo,TR.frz.lo); hi=Math.max(hi,TR.frz.hi); } }
+  else if(TR.trade){ const P=TR.trade, sp=Math.max(hi-lo,1e-9); for(const v of [P.sl,P.tp,P.e]){ if(v>hi&&v-hi<sp*0.8) hi=v; if(v<lo&&lo-v<sp*0.8) lo=v; } }
   const pad=(hi-lo)*.06; return {lo:lo-pad,hi:hi+pad};
 }
 function trGeom(){
@@ -667,7 +667,7 @@ function trDraw(){
   });
   const P=TR.trade||TR.place;
   if(P){
-    const tag=(v,col,txt,bold)=>{ const y=Y(v); x.strokeStyle=col; x.lineWidth=bold?2:1; x.setLineDash(bold?[]:[5,4]); x.beginPath(); x.moveTo(0,y); x.lineTo(W-AXIS,y); x.stroke(); x.setLineDash([]); x.lineWidth=1;
+    const tag=(v,col,txt,bold)=>{ let y=Y(v); if(y<10||y>H-10){ y=Math.max(10,Math.min(H-10,y)); txt=(Y(v)<10?'↑ ':'↓ ')+txt; x.fillStyle=col; x.fillRect(W-AXIS,y-9,AXIS,18); x.fillStyle='#0b0d14'; x.font='bold 10px Inter,sans-serif'; x.fillText(txt,W-AXIS+4,y+3.5); x.font='10px Inter,sans-serif'; return; } x.strokeStyle=col; x.lineWidth=bold?2:1; x.setLineDash(bold?[]:[5,4]); x.beginPath(); x.moveTo(0,y); x.lineTo(W-AXIS,y); x.stroke(); x.setLineDash([]); x.lineWidth=1;
       x.fillStyle=col; x.fillRect(W-AXIS,y-9,AXIS,18); x.fillStyle='#0b0d14'; x.font='bold 10px Inter,sans-serif'; x.fillText(txt,W-AXIS+4,y+3.5); x.font='10px Inter,sans-serif'; };
     const live=!!TR.place;
     tag(P.tp,'#22d39a','TP '+Math.abs(P.tp-P.e).toFixed(1),live); tag(P.sl,'#ff5d6c','SL '+Math.abs(P.e-P.sl).toFixed(1),live); tag(P.e,'#f7c25c',trFmt(P.e),false);
